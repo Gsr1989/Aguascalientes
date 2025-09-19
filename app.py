@@ -129,18 +129,18 @@ def obtener_folios_usuario(user_id: int):
 
 # ===================== COORDENADAS Y FECHAS =====================
 coords_ags = {
-    "folio": (520, 120, 14, (1, 0, 0)),
-    "marca": (120, 200, 12, (0, 0, 0)),
-    "modelo": (120, 220, 12, (0, 0, 0)),
-    "color": (120, 240, 12, (0, 0, 0)),
-    "serie": (120, 260, 12, (0, 0, 0)),
-    "motor": (120, 280, 12, (0, 0, 0)),
-    "nombre": (120, 300, 12, (0, 0, 0)),
-    "fecha_exp_larga": (120, 320, 12, (0, 0, 0)),
-    "fecha_ven_larga": (120, 340, 12, (0, 0, 0)),
+    "folio": (680, 130, 25, (1, 0, 0)),
+    "marca": (220, 350, 20, (0, 0, 0)),
+    "modelo": (220, 420, 20, (0, 0, 0)),
+    "color": (220, 540, 20, (0, 0, 0)),
+    "serie": (220, 660, 20, (0, 0, 0)),
+    "motor": (220, 780, 20, (0, 0, 0)),
+    "nombre": (220, 780, 20, (0, 0, 0)),
+    "fecha_exp_larga": (120, 320, 20, (0, 0, 0)),
+    "fecha_ven_larga": (120, 340, 20, (0, 0, 0)),
 }
 
-ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
+ABR_MES = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"]
 
 def fecha_larga(dt: datetime) -> str:
     return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
@@ -225,8 +225,8 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x = 595
-                    qr_y = 148
+                    qr_x = 700
+                    qr_y = 142
                     qr_width = 115
                     qr_height = 115
                     

@@ -233,7 +233,7 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x = 700
+                    qr_x = 900
                     qr_y = 148
                     qr_width = 115
                     qr_height = 115

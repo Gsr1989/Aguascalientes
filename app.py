@@ -197,42 +197,102 @@ def generar_qr_dinamico_ags(datos):
         return None
 
 def generar_pdf_ags(datos: dict) -> str:
+    """Genera PDF - usa plantilla si existe, sino crea desde cero"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
     
     try:
-        doc = fitz.open(PLANTILLA_PDF)
-        pg = doc[0]
+        # Intentar usar plantilla primero
+        if os.path.exists(PLANTILLA_PDF):
+            print(f"[PDF] Usando plantilla: {PLANTILLA_PDF}")
+            doc = fitz.open(PLANTILLA_PDF)
+            pg = doc[0]
 
-        def put(key, value):
-            if key not in coords_ags:
-                return
-            x, y, s, col = coords_ags[key]
-            pg.insert_text((x, y), str(value), fontsize=s, color=col, fontname="helvb")
+            def put(key, value):
+                if key not in coords_ags:
+                    return
+                x, y, s, col = coords_ags[key]
+                pg.insert_text((x, y), str(value), fontsize=s, color=col, fontname="helvb")
 
-        put("folio", datos["folio"])
-        put("marca", datos["marca"])
-        put("modelo", datos["linea"])
-        put("color", datos["color"])
-        put("serie", datos["serie"])
-        put("motor", datos["motor"])
-        put("nombre", datos["nombre"])
-        put("fecha_ven_larga", fecha_larga(datos["fecha_ven_dt"]))
+            put("folio", datos["folio"])
+            put("marca", datos["marca"])
+            put("modelo", datos["linea"])
+            put("color", datos["color"])
+            put("serie", datos["serie"])
+            put("motor", datos["motor"])
+            put("nombre", datos["nombre"])
+            put("fecha_ven_larga", fecha_larga(datos["fecha_ven_dt"]))
 
-        img_qr = generar_qr_dinamico_ags(datos)
-        if img_qr:
-            buf = BytesIO()
-            img_qr.save(buf, format="PNG")
-            buf.seek(0)
-            qr_pix = fitz.Pixmap(buf.read())
-            rect = fitz.Rect(495, 40, 575, 120)
-            pg.insert_image(rect, pixmap=qr_pix, overlay=True)
+            # QR
+            try:
+                img_qr = generar_qr_dinamico_ags(datos)
+                if img_qr:
+                    buf = BytesIO()
+                    img_qr.save(buf, format="PNG")
+                    buf.seek(0)
+                    qr_pix = fitz.Pixmap(buf.read())
+                    rect = fitz.Rect(495, 40, 575, 120)
+                    pg.insert_image(rect, pixmap=qr_pix, overlay=True)
+            except Exception as e:
+                print(f"[PDF] Error QR con plantilla: {e}")
+
+        else:
+            # Crear PDF desde cero si no hay plantilla
+            print(f"[PDF] No se encuentra {PLANTILLA_PDF}, creando desde cero")
+            doc = fitz.open()  # PDF en blanco
+            page = doc.new_page(width=595, height=842)  # A4
+            
+            # Folio en rojo grande
+            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0), fontname="helvb")
+            
+            # Datos verticales
+            y_pos = 120
+            line_height = 25
+            
+            marca_modelo = f"{datos['marca']} {datos['linea']}"
+            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0), fontname="helvb")
+            y_pos += line_height
+            
+            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            y_pos += line_height
+            
+            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            y_pos += line_height
+            
+            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            y_pos += line_height
+            
+            if datos["motor"] and datos["motor"].upper() != "SIN NUMERO":
+                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+                y_pos += line_height
+            
+            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            y_pos += line_height
+            
+            fecha_expedicion = datos["fecha_exp"].replace("/", " / ")
+            fecha_vencimiento = datos["fecha_ven"].replace("/", " / ")
+            fechas_texto = f"{fecha_expedicion}    {fecha_vencimiento}"
+            page.insert_text((50, y_pos), fechas_texto, fontsize=12, color=(0, 0, 0), fontname="helvb")
+            
+            # QR esquina derecha
+            try:
+                img_qr = generar_qr_dinamico_ags(datos)
+                if img_qr:
+                    buf = BytesIO()
+                    img_qr.save(buf, format="PNG")
+                    buf.seek(0)
+                    qr_pix = fitz.Pixmap(buf.read())
+                    rect = fitz.Rect(450, 30, 550, 130)
+                    page.insert_image(rect, pixmap=qr_pix, overlay=True)
+            except Exception as e:
+                print(f"[PDF] Error QR sin plantilla: {e}")
 
         doc.save(out)
         doc.close()
         return out
+        
     except Exception as e:
-        print(f"[PDF] Error generando PDF: {e}")
+        print(f"[PDF] Error crítico: {e}")
         raise e
 
 # ===================== FSM =====================

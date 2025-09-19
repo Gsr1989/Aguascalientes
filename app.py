@@ -129,7 +129,7 @@ def obtener_folios_usuario(user_id: int):
 
 # ===================== COORDENADAS Y FECHAS =====================
 coords_ags = {
-    "folio": (800, 100, 22, (1, 0, 0)),
+    "folio": (815, 103, 25, (1, 0, 0)),
     "marca": (260, 305, 22, (0, 0, 0)),
     "modelo": (260, 355, 22, (0, 0, 0)),
     "color": (260, 403, 22, (0, 0, 0)),

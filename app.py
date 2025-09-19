@@ -172,30 +172,6 @@ def generar_folio_ags():
         print(f"[FOLIO] Error: {e}")
         return f"{prefijo}{random.randint(10000,99999)}"
 
-def generar_qr_dinamico_ags(datos):
-    """QR con payload de TEXTO legible + URL de verificación al final"""
-    try:
-        url_consulta = f"{BASE_URL}/consulta_folio/{datos['folio']}"
-        payload = (
-            f"Marca: {datos['marca']}\n"
-            f"Línea: {datos['linea']}\n"
-            f"Año: {datos['anio']}\n"
-            f"Serie: {datos['serie']}\n"
-            f"Motor: {datos['motor']}\n"
-            f"Color: {datos['color']}\n"
-            f"Nombre: {datos['nombre']}\n"
-            f"Expedición: {datos['fecha_exp']}\n"
-            f"Vencimiento: {datos['fecha_ven']}\n"
-            f"Verificación: {url_consulta}"
-        )
-        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=1)
-        qr.add_data(payload)
-        qr.make(fit=True)
-        return qr.make_image(fill_color="black", back_color="white").convert("RGB")
-    except Exception as e:
-        print(f"[QR] Error: {e}")
-        return None
-
 def generar_pdf_ags(datos: dict) -> str:
     """Genera PDF - usa plantilla si existe, sino crea desde cero"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -212,7 +188,7 @@ def generar_pdf_ags(datos: dict) -> str:
                 if key not in coords_ags:
                     return
                 x, y, s, col = coords_ags[key]
-                pg.insert_text((x, y), str(value), fontsize=s, color=col, fontname="helvb")
+                pg.insert_text((x, y), str(value), fontsize=s, color=col)
 
             put("folio", datos["folio"])
             put("marca", datos["marca"])
@@ -243,36 +219,36 @@ def generar_pdf_ags(datos: dict) -> str:
             page = doc.new_page(width=595, height=842)  # A4
             
             # Folio en rojo grande
-            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0), fontname="helvb")
+            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0))
             
             # Datos verticales
             y_pos = 120
             line_height = 25
             
             marca_modelo = f"{datos['marca']} {datos['linea']}"
-            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0), fontname="helvb")
+            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
             if datos["motor"] and datos["motor"].upper() != "SIN NUMERO":
-                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0))
                 y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0), fontname="helvb")
+            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
             fecha_expedicion = datos["fecha_exp"].replace("/", " / ")
             fecha_vencimiento = datos["fecha_ven"].replace("/", " / ")
             fechas_texto = f"{fecha_expedicion}    {fecha_vencimiento}"
-            page.insert_text((50, y_pos), fechas_texto, fontsize=12, color=(0, 0, 0), fontname="helvb")
+            page.insert_text((50, y_pos), fechas_texto, fontsize=12, color=(0, 0, 0))
             
             # QR esquina derecha
             try:

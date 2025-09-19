@@ -130,13 +130,14 @@ def obtener_folios_usuario(user_id: int):
 # ===================== COORDENADAS Y FECHAS =====================
 coords_ags = {
     "folio": (520, 120, 14, (1, 0, 0)),
-    "marca": (120, 200, 11, (0, 0, 0)),
-    "modelo": (120, 220, 11, (0, 0, 0)),
-    "color": (120, 240, 11, (0, 0, 0)),
-    "serie": (120, 260, 11, (0, 0, 0)),
-    "motor": (120, 280, 11, (0, 0, 0)),
-    "nombre": (120, 300, 11, (0, 0, 0)),
-    "fecha_ven_larga": (120, 320, 11, (0, 0, 0)),
+    "marca": (120, 200, 12, (0, 0, 0)),
+    "modelo": (120, 220, 12, (0, 0, 0)),
+    "color": (120, 240, 12, (0, 0, 0)),
+    "serie": (120, 260, 12, (0, 0, 0)),
+    "motor": (120, 280, 12, (0, 0, 0)),
+    "nombre": (120, 300, 12, (0, 0, 0)),
+    "fecha_exp_larga": (120, 320, 12, (0, 0, 0)),
+    "fecha_ven_larga": (120, 340, 12, (0, 0, 0)),
 }
 
 ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
@@ -172,24 +173,12 @@ def generar_folio_ags():
         print(f"[FOLIO] Error: {e}")
         return f"{prefijo}{random.randint(10000,99999)}"
 
-def generar_qr_dinamico_ags(datos):
-    """QR con payload de TEXTO legible + URL de verificación al final"""
+def generar_qr_simple_ags(folio):
+    """QR que apunta directamente al endpoint de estado"""
     try:
-        url_consulta = f"{BASE_URL}/consulta_folio/{datos['folio']}"
-        payload = (
-            f"Marca: {datos['marca']}\n"
-            f"Línea: {datos['linea']}\n"
-            f"Año: {datos['anio']}\n"
-            f"Serie: {datos['serie']}\n"
-            f"Motor: {datos['motor']}\n"
-            f"Color: {datos['color']}\n"
-            f"Nombre: {datos['nombre']}\n"
-            f"Expedición: {datos['fecha_exp']}\n"
-            f"Vencimiento: {datos['fecha_ven']}\n"
-            f"Verificación: {url_consulta}"
-        )
+        url_estado = f"{BASE_URL}/estado_folio/{folio}"
         qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=1)
-        qr.add_data(payload)
+        qr.add_data(url_estado)
         qr.make(fit=True)
         return qr.make_image(fill_color="black", back_color="white").convert("RGB")
     except Exception as e:
@@ -207,11 +196,14 @@ def generar_pdf_ags(datos: dict) -> str:
             doc = fitz.open(PLANTILLA_PDF)
             pg = doc[0]
 
+            # Configurar fuente elegante y en negritas
+            font_name = "helv-bold"  # Helvetica Bold
+
             def put(key, value):
                 if key not in coords_ags:
                     return
                 x, y, s, col = coords_ags[key]
-                pg.insert_text((x, y), str(value), fontsize=s, color=col)
+                pg.insert_text((x, y), str(value), fontsize=s, color=col, fontname=font_name)
 
             put("folio", datos["folio"])
             put("marca", datos["marca"])
@@ -220,13 +212,14 @@ def generar_pdf_ags(datos: dict) -> str:
             put("serie", datos["serie"])
             put("motor", datos["motor"])
             put("nombre", datos["nombre"])
-            put("fecha_ven_larga", fecha_larga(datos["fecha_ven_dt"]))
+            put("fecha_exp_larga", f"Exp: {fecha_larga(datos['fecha_exp_dt'])}")
+            put("fecha_ven_larga", f"Ven: {fecha_larga(datos['fecha_ven_dt'])}")
 
-            # QR con tus coordenadas exactas
+            # QR simplificado con solo URL
             try:
-                img_qr = generar_qr_dinamico_ags(datos)
+                img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
-                    print("[PDF] QR generado correctamente")
+                    print("[PDF] QR simplificado generado correctamente")
                     buf = BytesIO()
                     img_qr.save(buf, format="PNG")
                     buf.seek(0)
@@ -249,46 +242,51 @@ def generar_pdf_ags(datos: dict) -> str:
             doc = fitz.open()
             page = doc.new_page(width=595, height=842)
             
-            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0))
+            # Configurar fuente elegante
+            font_name = "helv-bold"
+            
+            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0), fontname=font_name)
             
             y_pos = 120
             line_height = 25
             
             marca_modelo = f"{datos['marca']} {datos['linea']}"
-            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0))
+            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0), fontname=font_name)
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0))
+            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0), fontname=font_name)
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0))
+            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0), fontname=font_name)
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0))
+            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0), fontname=font_name)
             y_pos += line_height
             
             if datos["motor"] and datos["motor"].upper() != "SIN NUMERO":
-                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0))
+                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0), fontname=font_name)
                 y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0))
+            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0), fontname=font_name)
             y_pos += line_height
             
+            # Mostrar ambas fechas
             fecha_expedicion = datos["fecha_exp"].replace("/", " / ")
             fecha_vencimiento = datos["fecha_ven"].replace("/", " / ")
-            fechas_texto = f"Exp: {fecha_expedicion} - Ven: {fecha_vencimiento}"
-            page.insert_text((50, y_pos), fechas_texto, fontsize=12, color=(0, 0, 0))
+            page.insert_text((50, y_pos), f"Expedición: {fecha_expedicion}", fontsize=12, color=(0, 0, 0), fontname=font_name)
+            y_pos += line_height
+            page.insert_text((50, y_pos), f"Vencimiento: {fecha_vencimiento}", fontsize=12, color=(0, 0, 0), fontname=font_name)
             
             try:
-                img_qr = generar_qr_dinamico_ags(datos)
+                img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
                     buf = BytesIO()
                     img_qr.save(buf, format="PNG")
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x = 595
-                    qr_y = 148
+                    qr_x = 400
+                    qr_y = 100
                     qr_width = 115
                     qr_height = 115
                     
@@ -475,6 +473,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
     ven = hoy + timedelta(days=30)
     datos["fecha_exp"] = hoy.strftime("%d/%m/%Y")
     datos["fecha_ven"] = ven.strftime("%d/%m/%Y")
+    datos["fecha_exp_dt"] = hoy
     datos["fecha_ven_dt"] = ven
 
     await enviar_mensaje_seguro(
@@ -482,7 +481,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
         "🔄 <b>Generando permiso...</b>\n\n"
         f"📄 <b>Folio:</b> {datos['folio']}\n"
         f"👤 <b>Titular:</b> {datos['nombre']}\n"
-        "Se emitirá con QR dinámico (texto + URL).",
+        "Se emitirá con QR que apunta directamente al estado del folio.",
         parse_mode="HTML"
     )
 
@@ -498,6 +497,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
             "nombre": datos["nombre"],
             "fecha_exp": datos["fecha_exp"],
             "fecha_ven": datos["fecha_ven"],
+            "fecha_exp_dt": datos["fecha_exp_dt"],
             "fecha_ven_dt": datos["fecha_ven_dt"],
         })
 
@@ -506,8 +506,9 @@ async def get_nombre(message: types.Message, state: FSMContext):
             caption=(
                 "📄 <b>PERMISO DIGITAL – AGUASCALIENTES</b>\n"
                 f"<b>Folio:</b> {datos['folio']}\n"
-                f"<b>Vigencia:</b> 30 días\n"
-                "🔳 QR con datos (texto) + URL de verificación"
+                f"<b>Expedición:</b> {datos['fecha_exp']}\n"
+                f"<b>Vencimiento:</b> {datos['fecha_ven']}\n"
+                "🔳 QR para verificación rápida de estado"
             ),
             parse_mode="HTML"
         )
@@ -772,6 +773,254 @@ async def telegram_webhook(request: Request):
             pass
         return {"ok": False, "error": str(e)}
 
+# ===================== NUEVO ENDPOINT DE ESTADO =====================
+@app.get("/estado_folio/{folio}", response_class=HTMLResponse)
+async def estado_folio(folio: str):
+    """Endpoint simplificado para mostrar solo el estado del folio"""
+    try:
+        # Limpiar el folio de entrada
+        folio_limpio = ''.join(c for c in folio if c.isalnum())
+        
+        # Buscar en la base de datos
+        res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
+        row = (res.data or [None])[0]
+        
+        if not row:
+            return HTMLResponse(f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Estado del Folio - Aguascalientes</title>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }}
+                    .card {{ background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }}
+                    .status-icon {{ font-size: 60px; margin-bottom: 20px; }}
+                    .status-title {{ font-size: 24px; font-weight: bold; color: #e74c3c; margin-bottom: 15px; }}
+                    .folio-number {{ font-size: 20px; color: #2c3e50; margin-bottom: 20px; background: #f8f9fa; padding: 10px; border-radius: 10px; }}
+                    .message {{ color: #7f8c8d; line-height: 1.6; }}
+                    .back-btn {{ background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 10px; display: inline-block; margin-top: 20px; font-weight: 500; }}
+                    .back-btn:hover {{ background: #2980b9; }}
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="status-icon">❌</div>
+                    <div class="status-title">Folio No Encontrado</div>
+                    <div class="folio-number">Folio: {folio_limpio}</div>
+                    <div class="message">
+                        Este folio no existe en el sistema o fue eliminado por vencimiento.
+                    </div>
+                    <a href="/" class="back-btn">Volver al Inicio</a>
+                </div>
+            </body>
+            </html>
+            """, status_code=404)
+
+        # Determinar el estado con colores
+        estado = row.get('estado', 'DESCONOCIDO')
+        fecha_ven = row.get('fecha_vencimiento', '')
+        
+        # Verificar si está vencido
+        esta_vencido = False
+        if fecha_ven:
+            try:
+                fecha_ven_dt = datetime.fromisoformat(fecha_ven)
+                hoy = datetime.now(ZoneInfo(TZ)).replace(tzinfo=None)
+                esta_vencido = hoy > fecha_ven_dt
+            except:
+                pass
+
+        if esta_vencido:
+            status_color = "#f39c12"  # Ámbar
+            status_icon = "⚠️"
+            status_title = "FOLIO EXPIRADO"
+            status_message = f"El folio {folio_limpio} ha expirado y no es válido para circular."
+            card_bg = "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)"
+        elif estado in ['VALIDADO_ADMIN', 'COMPROBANTE_ENVIADO']:
+            status_color = "#27ae60"  # Verde
+            status_icon = "✅"
+            status_title = "FOLIO VIGENTE"
+            status_message = f"El folio {folio_limpio} se encuentra vigente y válido para circular."
+            card_bg = "linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)"
+        else:
+            status_color = "#f39c12"  # Ámbar
+            status_icon = "⏳"
+            status_title = "FOLIO PENDIENTE"
+            status_message = f"El folio {folio_limpio} está pendiente de validación."
+            card_bg = "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)"
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Estado del Folio {folio_limpio} - Aguascalientes</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{ 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                    margin: 0; 
+                    padding: 20px; 
+                    background: {card_bg}; 
+                    min-height: 100vh; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                }}
+                .card {{ 
+                    background: white; 
+                    padding: 40px; 
+                    border-radius: 20px; 
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.2); 
+                    text-align: center; 
+                    max-width: 400px; 
+                    width: 100%; 
+                    backdrop-filter: blur(10px);
+                }}
+                .status-icon {{ 
+                    font-size: 80px; 
+                    margin-bottom: 20px; 
+                    animation: pulse 2s infinite;
+                }}
+                @keyframes pulse {{
+                    0% {{ transform: scale(1); }}
+                    50% {{ transform: scale(1.1); }}
+                    100% {{ transform: scale(1); }}
+                }}
+                .status-title {{ 
+                    font-size: 28px; 
+                    font-weight: bold; 
+                    color: {status_color}; 
+                    margin-bottom: 15px; 
+                }}
+                .folio-number {{ 
+                    font-size: 24px; 
+                    color: #2c3e50; 
+                    margin-bottom: 20px; 
+                    background: #f8f9fa; 
+                    padding: 15px; 
+                    border-radius: 15px; 
+                    font-weight: bold;
+                    letter-spacing: 2px;
+                }}
+                .message {{ 
+                    color: #34495e; 
+                    line-height: 1.6; 
+                    font-size: 16px;
+                    margin-bottom: 20px;
+                }}
+                .details {{ 
+                    background: #f8f9fa; 
+                    padding: 20px; 
+                    border-radius: 15px; 
+                    margin: 20px 0; 
+                    text-align: left;
+                }}
+                .detail-row {{ 
+                    display: flex; 
+                    justify-content: space-between; 
+                    margin: 8px 0; 
+                    padding: 5px 0;
+                    border-bottom: 1px solid #ecf0f1;
+                }}
+                .detail-row:last-child {{ border-bottom: none; }}
+                .detail-label {{ 
+                    font-weight: 600; 
+                    color: #7f8c8d; 
+                }}
+                .detail-value {{ 
+                    color: #2c3e50; 
+                    font-weight: 500;
+                }}
+                .back-btn {{ 
+                    background: #3498db; 
+                    color: white; 
+                    padding: 15px 30px; 
+                    text-decoration: none; 
+                    border-radius: 10px; 
+                    display: inline-block; 
+                    margin-top: 20px; 
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                }}
+                .back-btn:hover {{ 
+                    background: #2980b9; 
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+                }}
+                .footer {{ 
+                    margin-top: 30px; 
+                    color: #95a5a6; 
+                    font-size: 12px; 
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="status-icon">{status_icon}</div>
+                <div class="status-title">{status_title}</div>
+                <div class="folio-number">{folio_limpio}</div>
+                <div class="message">{status_message}</div>
+                
+                <div class="details">
+                    <div class="detail-row">
+                        <span class="detail-label">Titular:</span>
+                        <span class="detail-value">{row.get('contribuyente', 'N/A')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Vehículo:</span>
+                        <span class="detail-value">{row.get('marca', '')} {row.get('linea', '')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Año:</span>
+                        <span class="detail-value">{row.get('anio', 'N/A')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Serie:</span>
+                        <span class="detail-value">{row.get('numero_serie', 'N/A')}</span>
+                    </div>
+                </div>
+                
+                <a href="/consulta_folio/{folio_limpio}" class="back-btn">Ver Detalles Completos</a>
+                
+                <div class="footer">
+                    Gobierno de Aguascalientes<br>
+                    Consulta realizada: {datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y %H:%M")}
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(html, status_code=200)
+        
+    except Exception as e:
+        print(f"[ESTADO] Error: {e}")
+        return HTMLResponse(f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Error - Aguascalientes</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
+                .error {{ color: #d32f2f; }}
+                .back-btn {{ background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2 class="error">❌ Error del Sistema</h2>
+                <p>Ocurrió un error al consultar el estado del folio. Por favor intenta de nuevo más tarde.</p>
+                <a href="/" class="back-btn">Volver al Inicio</a>
+            </div>
+        </body>
+        </html>
+        """, status_code=500)
+
 @app.get("/consulta_folio/{folio}", response_class=HTMLResponse)
 async def consulta_folio(folio: str):
     try:
@@ -855,26 +1104,35 @@ async def consulta_folio(folio: str):
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
-                .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-                .header {{ text-align: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; margin-bottom: 30px; }}
-                .logo {{ font-size: 24px; color: #2c3e50; margin-bottom: 10px; }}
-                .title {{ font-size: 28px; color: #2c3e50; margin: 0; }}
-                .subtitle {{ color: #7f8c8d; margin: 5px 0; }}
-                .status {{ text-align: center; padding: 15px; border-radius: 8px; margin: 20px 0; background: {estado_color}; color: white; font-weight: bold; font-size: 18px; }}
-                .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }}
-                .info-item {{ background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #2c3e50; }}
-                .info-label {{ font-weight: bold; color: #2c3e50; font-size: 14px; text-transform: uppercase; }}
-                .info-value {{ font-size: 16px; margin-top: 5px; color: #2c3e50; }}
-                .folio-highlight {{ background: #e74c3c; color: white; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0; }}
-                .folio-number {{ font-size: 32px; font-weight: bold; }}
-                .back-btn {{ background: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; }}
-                .back-btn:hover {{ background: #1976D2; }}
-                .qr-info {{ background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }}
-                @media (max-width: 600px) {{
+                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }}
+                .container {{ max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }}
+                .header {{ text-align: center; border-bottom: 3px solid #2c3e50; padding-bottom: 25px; margin-bottom: 35px; }}
+                .logo {{ font-size: 48px; color: #2c3e50; margin-bottom: 15px; }}
+                .title {{ font-size: 32px; color: #2c3e50; margin: 0; font-weight: bold; }}
+                .subtitle {{ color: #7f8c8d; margin: 10px 0; font-size: 16px; }}
+                .status {{ text-align: center; padding: 20px; border-radius: 12px; margin: 25px 0; background: {estado_color}; color: white; font-weight: bold; font-size: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }}
+                .info-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; margin: 35px 0; }}
+                .info-item {{ background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 20px; border-radius: 12px; border-left: 5px solid #3498db; transition: transform 0.3s ease; }}
+                .info-item:hover {{ transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }}
+                .info-label {{ font-weight: bold; color: #2c3e50; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }}
+                .info-value {{ font-size: 18px; margin-top: 8px; color: #2c3e50; font-weight: 600; }}
+                .folio-highlight {{ background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 25px; text-align: center; border-radius: 12px; margin: 25px 0; box-shadow: 0 6px 20px rgba(231, 76, 60, 0.3); }}
+                .folio-number {{ font-size: 40px; font-weight: bold; letter-spacing: 3px; }}
+                .folio-label {{ font-size: 16px; margin-bottom: 10px; opacity: 0.9; }}
+                .back-btn {{ background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; margin-top: 25px; font-weight: 600; transition: all 0.3s ease; }}
+                .back-btn:hover {{ transform: translateY(-2px); box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4); }}
+                .qr-info {{ background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 20px; border-radius: 12px; margin: 25px 0; text-align: center; border: 2px solid #2196f3; }}
+                .qr-info h3 {{ color: #1976d2; margin-top: 0; }}
+                .verification-urls {{ background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }}
+                .verification-urls code {{ background: #e9ecef; padding: 5px 10px; border-radius: 4px; color: #495057; font-family: 'Courier New', monospace; }}
+                @media (max-width: 768px) {{
                     .info-grid {{ grid-template-columns: 1fr; }}
-                    .container {{ margin: 10px; padding: 20px; }}
+                    .container {{ margin: 10px; padding: 25px; }}
+                    .folio-number {{ font-size: 28px; }}
+                    .title {{ font-size: 24px; }}
                 }}
+                .footer {{ margin-top: 40px; padding-top: 25px; border-top: 2px solid #ecf0f1; text-align: center; color: #7f8c8d; font-size: 13px; }}
+                .footer p {{ margin: 5px 0; }}
             </style>
         </head>
         <body>
@@ -886,7 +1144,7 @@ async def consulta_folio(folio: str):
                 </div>
 
                 <div class="folio-highlight">
-                    <div>FOLIO</div>
+                    <div class="folio-label">FOLIO OFICIAL</div>
                     <div class="folio-number">{row.get('folio','')}</div>
                 </div>
 
@@ -896,7 +1154,7 @@ async def consulta_folio(folio: str):
 
                 <div class="info-grid">
                     <div class="info-item">
-                        <div class="info-label">🚗 Marca</div>
+                        <div class="info-label">🚗 Marca del Vehículo</div>
                         <div class="info-value">{row.get('marca','')}</div>
                     </div>
                     <div class="info-item">
@@ -904,7 +1162,7 @@ async def consulta_folio(folio: str):
                         <div class="info-value">{row.get('linea','')}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">📅 Año</div>
+                        <div class="info-label">📅 Año del Vehículo</div>
                         <div class="info-value">{row.get('anio','')}</div>
                     </div>
                     <div class="info-item">
@@ -920,11 +1178,11 @@ async def consulta_folio(folio: str):
                         <div class="info-value">{row.get('numero_motor','')}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">👤 Titular</div>
+                        <div class="info-label">👤 Titular del Permiso</div>
                         <div class="info-value">{row.get('contribuyente','')}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">🏛️ Entidad</div>
+                        <div class="info-label">🏛️ Entidad Emisora</div>
                         <div class="info-value">{row.get('entidad','').upper()}</div>
                     </div>
                     <div class="info-item">
@@ -938,44 +1196,64 @@ async def consulta_folio(folio: str):
                 </div>
 
                 <div class="qr-info">
-                    <h3>🔳 Verificación QR</h3>
-                    <p>Este permiso incluye un código QR con todos los datos del vehículo y un enlace de verificación en línea.</p>
-                    <p><strong>URL de verificación:</strong> {BASE_URL}/consulta_folio/{row.get('folio','')}</p>
+                    <h3>🔳 Sistema de Verificación QR</h3>
+                    <p>Este permiso incluye un código QR que permite la verificación rápida del estado del folio.</p>
+                    
+                    <div class="verification-urls">
+                        <p><strong>📱 Verificación Rápida (QR):</strong></p>
+                        <code>{BASE_URL}/estado_folio/{row.get('folio','')}</code>
+                        
+                        <p style="margin-top: 15px;"><strong>📋 Consulta Detallada:</strong></p>
+                        <code>{BASE_URL}/consulta_folio/{row.get('folio','')}</code>
+                    </div>
+                    
+                    <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                        Al escanear el QR, se mostrará el estado actual del permiso con código de colores:<br>
+                        <strong style="color: #27ae60;">Verde = Vigente</strong> | 
+                        <strong style="color: #f39c12;">Ámbar = Expirado/Pendiente</strong>
+                    </p>
                 </div>
 
                 <div style="text-align: center;">
-                    <a href="/" class="back-btn">🏠 Volver al Inicio</a>
+                    <a href="/" class="back-btn">🏠 Volver al Portal Principal</a>
                 </div>
 
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #7f8c8d; font-size: 12px;">
-                    <p>Documento generado digitalmente por el Sistema de Permisos de Aguascalientes</p>
-                    <p>Consulta realizada el {datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y a las %H:%M")}</p>
+                <div class="footer">
+                    <p><strong>Documento Oficial Generado Digitalmente</strong></p>
+                    <p>Sistema de Permisos de Circulación - Gobierno de Aguascalientes</p>
+                    <p>Consulta realizada el {datetime.now(ZoneInfo(TZ)).strftime("%d de %B de %Y a las %H:%M horas")}</p>
+                    <p>Para verificar la autenticidad de este documento, escanee el código QR del permiso físico</p>
                 </div>
             </div>
         </body>
         </html>
         """
         return HTMLResponse(html, status_code=200)
+        
     except Exception as e:
         print(f"[CONSULTA] Error: {e}")
         return HTMLResponse(f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Error - Aguascalientes</title>
+            <title>Error del Sistema - Aguascalientes</title>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-                .error {{ color: #d32f2f; }}
-                .back-btn {{ background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; }}
+                body {{ font-family: Arial, sans-serif; margin: 40px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }}
+                .container {{ max-width: 600px; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; }}
+                .error {{ color: #e74c3c; font-size: 24px; margin-bottom: 20px; }}
+                .error-icon {{ font-size: 60px; margin-bottom: 20px; }}
+                .back-btn {{ background: #3498db; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; margin-top: 25px; font-weight: 600; }}
+                .back-btn:hover {{ background: #2980b9; }}
             </style>
         </head>
         <body>
             <div class="container">
-                <h2 class="error">❌ Error del Sistema</h2>
-                <p>Ocurrió un error al consultar el folio. Por favor intenta de nuevo más tarde.</p>
+                <div class="error-icon">⚠️</div>
+                <h2 class="error">Error del Sistema</h2>
+                <p>Ocurrió un error inesperado al procesar la consulta del folio.</p>
+                <p>Por favor intenta de nuevo en unos momentos o contacta al soporte técnico.</p>
                 <a href="/" class="back-btn">🏠 Volver al Inicio</a>
             </div>
         </body>

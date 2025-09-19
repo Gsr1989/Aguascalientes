@@ -196,14 +196,12 @@ def generar_pdf_ags(datos: dict) -> str:
             doc = fitz.open(PLANTILLA_PDF)
             pg = doc[0]
 
-            # Configurar fuente elegante y en negritas
-            font_name = "helv-bold"  # Helvetica Bold
-
             def put(key, value):
                 if key not in coords_ags:
                     return
                 x, y, s, col = coords_ags[key]
-                pg.insert_text((x, y), str(value), fontsize=s, color=col, fontname=font_name)
+                # SIN fontname para evitar errores
+                pg.insert_text((x, y), str(value), fontsize=s, color=col)
 
             put("folio", datos["folio"])
             put("marca", datos["marca"])
@@ -225,8 +223,8 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x = 700
-                    qr_y = 142
+                    qr_x = 595
+                    qr_y = 148
                     qr_width = 115
                     qr_height = 115
                     
@@ -242,40 +240,38 @@ def generar_pdf_ags(datos: dict) -> str:
             doc = fitz.open()
             page = doc.new_page(width=595, height=842)
             
-            # Configurar fuente elegante
-            font_name = "helv-bold"
-            
-            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0), fontname=font_name)
+            # SIN fontname para evitar errores
+            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0))
             
             y_pos = 120
             line_height = 25
             
             marca_modelo = f"{datos['marca']} {datos['linea']}"
-            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0), fontname=font_name)
+            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0), fontname=font_name)
+            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0), fontname=font_name)
+            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0), fontname=font_name)
+            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
             if datos["motor"] and datos["motor"].upper() != "SIN NUMERO":
-                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0), fontname=font_name)
+                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0))
                 y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0), fontname=font_name)
+            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
             # Mostrar ambas fechas
             fecha_expedicion = datos["fecha_exp"].replace("/", " / ")
             fecha_vencimiento = datos["fecha_ven"].replace("/", " / ")
-            page.insert_text((50, y_pos), f"Expedición: {fecha_expedicion}", fontsize=12, color=(0, 0, 0), fontname=font_name)
+            page.insert_text((50, y_pos), f"Expedición: {fecha_expedicion}", fontsize=12, color=(0, 0, 0))
             y_pos += line_height
-            page.insert_text((50, y_pos), f"Vencimiento: {fecha_vencimiento}", fontsize=12, color=(0, 0, 0), fontname=font_name)
+            page.insert_text((50, y_pos), f"Vencimiento: {fecha_vencimiento}", fontsize=12, color=(0, 0, 0))
             
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])

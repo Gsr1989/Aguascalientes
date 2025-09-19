@@ -172,13 +172,36 @@ def generar_folio_ags():
         print(f"[FOLIO] Error: {e}")
         return f"{prefijo}{random.randint(10000,99999)}"
 
+def generar_qr_dinamico_ags(datos):
+    """QR con payload de TEXTO legible + URL de verificación al final"""
+    try:
+        url_consulta = f"{BASE_URL}/consulta_folio/{datos['folio']}"
+        payload = (
+            f"Marca: {datos['marca']}\n"
+            f"Línea: {datos['linea']}\n"
+            f"Año: {datos['anio']}\n"
+            f"Serie: {datos['serie']}\n"
+            f"Motor: {datos['motor']}\n"
+            f"Color: {datos['color']}\n"
+            f"Nombre: {datos['nombre']}\n"
+            f"Expedición: {datos['fecha_exp']}\n"
+            f"Vencimiento: {datos['fecha_ven']}\n"
+            f"Verificación: {url_consulta}"
+        )
+        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=1)
+        qr.add_data(payload)
+        qr.make(fit=True)
+        return qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    except Exception as e:
+        print(f"[QR] Error: {e}")
+        return None
+
 def generar_pdf_ags(datos: dict) -> str:
     """Genera PDF - usa plantilla si existe, sino crea desde cero"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
     
     try:
-        # Intentar usar plantilla primero
         if os.path.exists(PLANTILLA_PDF):
             print(f"[PDF] Usando plantilla: {PLANTILLA_PDF}")
             doc = fitz.open(PLANTILLA_PDF)
@@ -199,29 +222,35 @@ def generar_pdf_ags(datos: dict) -> str:
             put("nombre", datos["nombre"])
             put("fecha_ven_larga", fecha_larga(datos["fecha_ven_dt"]))
 
-            # QR
+            # QR con tus coordenadas exactas
             try:
                 img_qr = generar_qr_dinamico_ags(datos)
                 if img_qr:
+                    print("[PDF] QR generado correctamente")
                     buf = BytesIO()
                     img_qr.save(buf, format="PNG")
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
-                    rect = fitz.Rect(495, 40, 575, 120)
+                    
+                    qr_x = 595
+                    qr_y = 148
+                    qr_width = 115
+                    qr_height = 115
+                    
+                    rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
                     pg.insert_image(rect, pixmap=qr_pix, overlay=True)
+                else:
+                    print("[PDF] No se pudo generar el QR")
             except Exception as e:
                 print(f"[PDF] Error QR con plantilla: {e}")
 
         else:
-            # Crear PDF desde cero si no hay plantilla
             print(f"[PDF] No se encuentra {PLANTILLA_PDF}, creando desde cero")
-            doc = fitz.open()  # PDF en blanco
-            page = doc.new_page(width=595, height=842)  # A4
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
             
-            # Folio en rojo grande
             page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0))
             
-            # Datos verticales
             y_pos = 120
             line_height = 25
             
@@ -247,10 +276,9 @@ def generar_pdf_ags(datos: dict) -> str:
             
             fecha_expedicion = datos["fecha_exp"].replace("/", " / ")
             fecha_vencimiento = datos["fecha_ven"].replace("/", " / ")
-            fechas_texto = f"{fecha_expedicion}    {fecha_vencimiento}"
+            fechas_texto = f"Exp: {fecha_expedicion} - Ven: {fecha_vencimiento}"
             page.insert_text((50, y_pos), fechas_texto, fontsize=12, color=(0, 0, 0))
             
-            # QR esquina derecha
             try:
                 img_qr = generar_qr_dinamico_ags(datos)
                 if img_qr:
@@ -258,7 +286,13 @@ def generar_pdf_ags(datos: dict) -> str:
                     img_qr.save(buf, format="PNG")
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
-                    rect = fitz.Rect(450, 30, 550, 130)
+                    
+                    qr_x = 595
+                    qr_y = 148
+                    qr_width = 115
+                    qr_height = 115
+                    
+                    rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
                     page.insert_image(rect, pixmap=qr_pix, overlay=True)
             except Exception as e:
                 print(f"[PDF] Error QR sin plantilla: {e}")

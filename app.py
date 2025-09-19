@@ -129,15 +129,15 @@ def obtener_folios_usuario(user_id: int):
 
 # ===================== COORDENADAS Y FECHAS =====================
 coords_ags = {
-    "folio": (790, 105, 30, (1, 0, 0)),
-    "marca": (245, 320, 25, (0, 0, 0)),
+    "folio": (810, 105, 30, (1, 0, 0)),
+    "marca": (245, 310, 25, (0, 0, 0)),
     "modelo": (245, 358, 25, (0, 0, 0)),
     "color": (245, 402, 25, (0, 0, 0)),
     "serie": (245, 450, 25, (0, 0, 0)),
-    "motor": (245, 508, 25, (0, 0, 0)),
-    "nombre": (740, 508, 25, (0, 0, 0)),
-    "fecha_exp_larga": (322, 540, 25, (0, 0, 0)),
-    "fecha_ven_larga": (790, 540, 25, (0, 0, 0)),
+    "motor": (245, 500, 25, (0, 0, 0)),
+    "nombre": (730, 500, 25, (0, 0, 0)),
+    "fecha_exp_larga": (322, 545, 25, (0, 0, 0)),
+    "fecha_ven_larga": (820, 545, 25, (0, 0, 0)),
 }
 
 ABR_MES = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"]

@@ -129,15 +129,14 @@ def obtener_folios_usuario(user_id: int):
 
 # ===================== COORDENADAS Y FECHAS =====================
 coords_ags = {
-    "folio": (815, 103, 25, (1, 0, 0)),
-    "marca": (260, 305, 22, (0, 0, 0)),
-    "modelo": (260, 355, 22, (0, 0, 0)),
-    "color": (260, 403, 22, (0, 0, 0)),
-    "serie": (260, 450, 22, (0, 0, 0)),
-    "motor": (260, 500, 22, (0, 0, 0)),
-    "nombre": (710, 500, 22, (0, 0, 0)),
-    "fecha_ven_larga": (850, 542, 22, (0, 0, 0)),
-    "fecha_exp_larga": (420, 460, 22, (0, 0, 0)),
+    "folio": (520, 120, 14, (1, 0, 0)),
+    "marca": (120, 200, 11, (0, 0, 0)),
+    "modelo": (120, 220, 11, (0, 0, 0)),
+    "color": (120, 240, 11, (0, 0, 0)),
+    "serie": (120, 260, 11, (0, 0, 0)),
+    "motor": (120, 280, 11, (0, 0, 0)),
+    "nombre": (120, 300, 11, (0, 0, 0)),
+    "fecha_ven_larga": (120, 320, 11, (0, 0, 0)),
 }
 
 ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
@@ -233,8 +232,8 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x = 975
-                    qr_y = 138
+                    qr_x = 595
+                    qr_y = 148
                     qr_width = 115
                     qr_height = 115
                     

@@ -53,18 +53,15 @@ user_folios = {}
 
 # ===================== FUNCIONES AUXILIARES =====================
 def sanitizar_texto(texto: str) -> str:
-    """Sanitiza texto para evitar problemas con HTML"""
     return html.escape(str(texto))
 
 def limpiar_entrada(texto: str) -> str:
-    """Limpia la entrada del usuario removiendo caracteres problemáticos"""
     if not texto:
         return ""
     texto_limpio = ''.join(c for c in texto if c.isalnum() or c.isspace() or c in '-_./')
     return texto_limpio.strip().upper()
 
 async def enviar_mensaje_seguro(chat_id: int, texto: str, **kwargs):
-    """Envía mensaje con manejo de errores y fallback"""
     try:
         return await bot.send_message(chat_id, texto, **kwargs)
     except Exception as e:
@@ -77,7 +74,6 @@ async def enviar_mensaje_seguro(chat_id: int, texto: str, **kwargs):
             raise e2
 
 async def eliminar_folio_automatico(folio: str):
-    """Borra definitivamente el folio de Supabase y limpia timer."""
     try:
         user_id = timers_activos.get(folio, {}).get("user_id")
         supabase.table("folios_registrados").delete().eq("folio", folio).execute()
@@ -86,7 +82,7 @@ async def eliminar_folio_automatico(folio: str):
             with suppress(Exception):
                 await enviar_mensaje_seguro(
                     user_id,
-                    f"⏰ <b>TIEMPO AGOTADO</b>\n\nEl folio <b>{folio}</b> fue eliminado por no recibir comprobante ni validación admin en 12 horas.",
+                    f"⏰ TIEMPO AGOTADO\n\nEl folio {folio} fue eliminado por no recibir comprobante ni validación admin en 12 horas.",
                     parse_mode="HTML"
                 )
     except Exception as e:
@@ -95,7 +91,6 @@ async def eliminar_folio_automatico(folio: str):
         limpiar_timer_folio(folio)
 
 async def iniciar_timer_12h(user_id: int, folio: str):
-    """Inicia timer exacto de 12 horas"""
     async def timer_task():
         try:
             await asyncio.sleep(12 * 60 * 60)  # 12 horas
@@ -135,378 +130,45 @@ def obtener_folios_usuario(user_id: int):
     return user_folios.get(user_id, [])
 
 # ===================== FUNCIONES DE TEMPLATES =====================
-def crear_template_archivo():
-    """Crea el archivo de template si no existe"""
-    template_html = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ titulo_pagina }}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --color-principal: #2c3e50;
-            --color-aguascalientes: #e74c3c;
-            --color-verde: #27ae60;
-            --color-ambar: #f39c12;
-            --color-rojo: #e74c3c;
-        }
-        body {
-            background-color: #ffffff;
-            font-family: 'Montserrat', Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            color: var(--color-principal);
-        }
-        header {
-            width: 100%;
-            background: linear-gradient(135deg, var(--color-aguascalientes) 0%, #c0392b 100%);
-            padding: 20px 0;
-            text-align: center;
-            color: white;
-        }
-        .logo { font-size: 48px; margin-bottom: 10px; }
-        .titulo {
-            text-align: center;
-            font-size: 28px;
-            margin-top: 20px;
-            font-weight: bold;
-            color: var(--color-aguascalientes);
-        }
-        .subtitulo {
-            text-align: center;
-            font-size: 18px;
-            margin-top: 5px;
-            color: var(--color-principal);
-        }
-        .estado {
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            margin-top: 30px;
-            padding: 20px;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 600px;
-            margin: 30px auto 0;
-            color: white;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-        .vigente { background: linear-gradient(135deg, var(--color-verde) 0%, #2ecc71 100%); }       
-        .vencido { background: linear-gradient(135deg, var(--color-ambar) 0%, #e67e22 100%); }     
-        .pendiente { background: linear-gradient(135deg, var(--color-ambar) 0%, #e67e22 100%); }
-        .no-encontrado { background: linear-gradient(135deg, var(--color-rojo) 0%, #c0392b 100%); }
-        .folio-destacado {
-            text-align: center;
-            background: var(--color-aguascalientes);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin: 20px auto;
-            max-width: 400px;
-            font-size: 20px;
-            font-weight: bold;
-            letter-spacing: 2px;
-        }
-        .certificado {
-            border: 3px solid #ddd;
-            padding: 25px;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 700px;
-            margin: 30px auto;
-            background-color: #f8f9fa;
-            color: var(--color-principal);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        .recuadro-interno {
-            border: 2px solid #bdc3c7;
-            padding: 25px;
-            border-radius: 12px;
-            background-color: #ffffff;
-        }
-        .datos-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .dato {
-            margin: 15px 0;
-            font-size: 16px;
-            color: var(--color-principal);
-            padding: 15px;
-            background: #ecf0f1;
-            border-radius: 8px;
-            border-left: 4px solid var(--color-aguascalientes);
-        }
-        .dato strong {
-            display: block;
-            font-size: 14px;
-            margin-bottom: 8px;
-            color: var(--color-principal);
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .dato-valor {
-            font-size: 18px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        .valido {
-            text-align: center;
-            font-weight: bold;
-            margin-top: 30px;
-            color: var(--color-principal);
-            font-size: 18px;
-            background: #e8f5e8;
-            padding: 15px;
-            border-radius: 10px;
-            max-width: 600px;
-            margin: 30px auto;
-        }
-        .acciones {
-            width: 90%;
-            max-width: 600px;
-            margin: 30px auto;
-            text-align: center;
-        }
-        .btn-regresar a {
-            display: inline-block;
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 16px;
-            color: white;
-            background: linear-gradient(135deg, var(--color-principal) 0%, #34495e 100%);
-            text-decoration: none;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            margin: 0 10px;
-        }
-        .btn-regresar a:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(44, 62, 80, 0.3);
-        }
-        footer {
-            margin-top: 50px;
-            width: 100%;
-            background: var(--color-principal);
-            color: white;
-            text-align: center;
-            padding: 30px 0;
-        }
-        @media (max-width: 768px) {
-            .titulo { font-size: 22px; }
-            .estado { font-size: 20px; }
-            .datos-grid { grid-template-columns: 1fr; }
-            .certificado { padding: 20px; }
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="logo">🏛️</div>
-        <h1 style="margin: 0; font-size: 32px;">Gobierno de Aguascalientes</h1>
-        <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">Sistema Digital de Permisos de Circulación</p>
-    </header>
-
-    <div class="titulo">{{ entidad_nombre }}</div>
-    <div class="subtitulo">{{ departamento }}</div>
-
-    <div class="folio-destacado">
-        FOLIO: {{ resultado.folio }}
-    </div>
-
-    {% if resultado.estado == "NO_ENCONTRADO" %}
-      <div class="estado no-encontrado">❌ FOLIO NO ENCONTRADO</div>
-      <div class="certificado">
-        <div class="recuadro-interno">
-          <p style="text-align: center; font-size: 18px;">
-            El folio <strong>{{ resultado.folio }}</strong> no fue encontrado en el sistema.
-          </p>
-          <ul style="text-align: left; margin: 20px 0;">
-            <li>El folio fue eliminado por vencimiento (12 horas sin comprobante)</li>
-            <li>El número de folio es incorrecto</li>
-            <li>El permiso aún no ha sido generado</li>
-          </ul>
-        </div>
-      </div>
-    {% elif resultado.esta_vencido %}
-      <div class="estado vencido">⚠️ FOLIO EXPIRADO</div>
-    {% elif resultado.estado in ['VALIDADO_ADMIN', 'COMPROBANTE_ENVIADO'] %}
-      <div class="estado vigente">✅ FOLIO VIGENTE</div>
-    {% else %}
-      <div class="estado pendiente">⏳ FOLIO PENDIENTE</div>
-    {% endif %}
-
-    {% if resultado.estado != "NO_ENCONTRADO" %}
-      <div class="certificado">
-        <div class="recuadro-interno">
-          <div class="datos-grid">
-            <div class="dato">
-              <strong>📅 Fecha de Expedición</strong>
-              <div class="dato-valor">{{ resultado.fecha_expedicion }}</div>
-            </div>
-            <div class="dato">
-              <strong>⏰ Fecha de Vencimiento</strong>
-              <div class="dato-valor">{{ resultado.fecha_vencimiento }}</div>
-            </div>
-            <div class="dato">
-              <strong>🚗 Marca</strong>
-              <div class="dato-valor">{{ resultado.marca }}</div>
-            </div>
-            <div class="dato">
-              <strong>🏷️ Línea/Modelo</strong>
-              <div class="dato-valor">{{ resultado.linea }}</div>
-            </div>
-            <div class="dato">
-              <strong>📅 Año</strong>
-              <div class="dato-valor">{{ resultado.anio }}</div>
-            </div>
-            <div class="dato">
-              <strong>🔢 Número de Serie</strong>
-              <div class="dato-valor">{{ resultado.numero_serie }}</div>
-            </div>
-            <div class="dato">
-              <strong>⚙️ Número de Motor</strong>
-              <div class="dato-valor">{{ resultado.numero_motor }}</div>
-            </div>
-            <div class="dato">
-              <strong>👤 Titular</strong>
-              <div class="dato-valor">{{ resultado.contribuyente }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-
-    <div class="valido">DOCUMENTO DIGITAL VÁLIDO EN TODO MÉXICO</div>
-
-    <div class="acciones btn-regresar">
-      <a href="{{ url_inicio }}">🏠 Regresar al Portal</a>
-      {% if resultado.estado != "NO_ENCONTRADO" %}
-      <a href="{{ base_url }}/estado_folio/{{ resultado.folio }}">📱 Ver Estado QR</a>
-      {% endif %}
-    </div>
-
-    <footer>
-        <p><strong>Documento Oficial Generado Digitalmente</strong></p>
-        <p>Sistema de Permisos de Circulación - Gobierno de Aguascalientes</p>
-        <p>Consulta realizada el {{ fecha_consulta }}</p>
-    </footer>
-</body>
-</html>"""
-    
-    template_path = os.path.join(TEMPLATES_DIR, "consulta_folio.html")
+def crear_template_resultado():
+    template_path = os.path.join(TEMPLATES_DIR, "resultado_consulta.html")
     if not os.path.exists(template_path):
-        with open(template_path, 'w', encoding='utf-8') as f:
-            f.write(template_html)
+        # El template ya está creado como archivo separado
+        pass
     return template_path
 
-def preparar_datos_folio(row):
-    """Prepara los datos del folio para el template"""
-    if not row:
-        return {
-            'folio': '',
-            'estado': 'NO_ENCONTRADO',
-            'esta_vencido': False
-        }
-    
-    # Verificar si está vencido
-    esta_vencido = False
-    fecha_ven = row.get('fecha_vencimiento', '')
-    if fecha_ven:
-        try:
-            fecha_ven_dt = datetime.fromisoformat(fecha_ven)
-            hoy = datetime.now(ZoneInfo(TZ)).replace(tzinfo=None)
-            esta_vencido = hoy > fecha_ven_dt
-        except:
-            pass
-    
-    # Formatear fechas
-    fecha_exp = row.get('fecha_expedicion', '')
-    fecha_ven_formateada = fecha_ven
-    
+def renderizar_resultado_consulta(row, vigente=True):
     try:
-        if fecha_exp:
-            fecha_exp_dt = datetime.fromisoformat(fecha_exp)
-            fecha_exp = fecha_exp_dt.strftime("%d/%m/%Y")
-    except:
-        pass
+        template = jinja_env.get_template('resultado_consulta.html')
         
-    try:
-        if fecha_ven:
-            fecha_ven_dt = datetime.fromisoformat(fecha_ven)
-            fecha_ven_formateada = fecha_ven_dt.strftime("%d/%m/%Y")
-    except:
-        pass
-    
-    return {
-        'folio': row.get('folio', ''),
-        'estado': row.get('estado', 'DESCONOCIDO'),
-        'esta_vencido': esta_vencido,
-        'fecha_expedicion': fecha_exp,
-        'fecha_vencimiento': fecha_ven_formateada,
-        'marca': row.get('marca', ''),
-        'linea': row.get('linea', ''),
-        'anio': row.get('anio', ''),
-        'numero_serie': row.get('numero_serie', ''),
-        'numero_motor': row.get('numero_motor', ''),
-        'contribuyente': row.get('contribuyente', ''),
-        'entidad': row.get('entidad', '').upper()
-    }
-
-def renderizar_consulta_folio(folio_data, base_url=""):
-    """Renderiza la página de consulta usando el template"""
-    
-    # Crear template si no existe
-    crear_template_archivo()
-    
-    # Preparar datos para el template
-    template_data = {
-        'titulo_pagina': f'Permiso {folio_data.get("folio", "")} - Aguascalientes',
-        'entidad_nombre': 'GOBIERNO DE AGUASCALIENTES',
-        'departamento': 'SISTEMA DIGITAL DE PERMISOS',
-        'base_url': base_url,
-        'url_inicio': f"{base_url}/",
-        'fecha_consulta': datetime.now(ZoneInfo(TZ)).strftime("%d de %B de %Y a las %H:%M horas"),
-        'resultado': folio_data
-    }
-    
-    try:
-        # Cargar y renderizar template
-        template = jinja_env.get_template('consulta_folio.html')
-        return template.render(**template_data)
+        # Formatear fecha de expedición
+        fecha_exp = row.get('fecha_expedicion', '')
+        if fecha_exp:
+            try:
+                fecha_exp_dt = datetime.fromisoformat(fecha_exp)
+                fecha_exp = fecha_exp_dt.strftime("%d/%m/%Y")
+            except:
+                pass
+        
+        datos = {
+            'folio': row.get('folio', ''),
+            'marca': row.get('marca', ''),
+            'linea': row.get('linea', ''),
+            'anio': row.get('anio', ''),
+            'serie': row.get('numero_serie', ''),
+            'motor': row.get('numero_motor', ''),
+            'color': row.get('color', ''),
+            'nombre': row.get('contribuyente', ''),
+            'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
+            'expedicion': fecha_exp,
+            'vigente': vigente
+        }
+        
+        return template.render(**datos)
+        
     except Exception as e:
         print(f"Error renderizando template: {e}")
-        # Fallback a template directo
-        template_path = crear_template_archivo()
-        with open(template_path, 'r', encoding='utf-8') as f:
-            template_content = f.read()
-        template = Template(template_content)
-        return template.render(**template_data)
-
-# Función actualizada para usar el nuevo template
-def renderizar_resultado_consulta(row, vigente=True):
-    template = jinja_env.get_template('resultado_consulta.html')
-    
-    datos = {
-        'folio': row.get('folio', ''),
-        'marca': row.get('marca', ''),
-        'linea': row.get('linea', ''),
-        'anio': row.get('anio', ''),
-        'serie': row.get('numero_serie', ''),
-        'motor': row.get('numero_motor', ''),
-        'color': row.get('color', ''),
-        'nombre': row.get('contribuyente', ''),
-        'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
-        'expedicion': row.get('fecha_expedicion', ''),
-        'vigente': vigente
-    }
-    
-    return template.render(**datos)
+        return f"<html><body><h1>Error al renderizar template: {e}</h1></body></html>"
 
 # ===================== COORDENADAS Y FECHAS =====================
 coords_ags = {
@@ -527,7 +189,6 @@ def fecha_larga(dt: datetime) -> str:
     return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
 
 def generar_folio_ags():
-    """Prefijo fijo '129' + incremental pegado"""
     prefijo = "129"
     try:
         resp = supabase.table("folios_registrados") \
@@ -555,7 +216,6 @@ def generar_folio_ags():
         return f"{prefijo}{random.randint(10000,99999)}"
 
 def generar_qr_simple_ags(folio):
-    """QR que apunta directamente al endpoint de estado"""
     try:
         url_estado = f"{BASE_URL}/estado_folio/{folio}"
         qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=1)
@@ -567,7 +227,6 @@ def generar_qr_simple_ags(folio):
         return None
 
 def generar_pdf_ags(datos: dict) -> str:
-    """Genera PDF - usa plantilla si existe, sino crea desde cero"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
     
@@ -593,11 +252,10 @@ def generar_pdf_ags(datos: dict) -> str:
             put("fecha_exp_larga", f"Exp: {fecha_larga(datos['fecha_exp_dt'])}")
             put("fecha_ven_larga", f"Ven: {fecha_larga(datos['fecha_ven_dt'])}")
 
-            # QR simplificado con solo URL
+            # QR simplificado
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
-                    print("[PDF] QR simplificado generado correctamente")
                     buf = BytesIO()
                     img_qr.save(buf, format="PNG")
                     buf.seek(0)
@@ -610,13 +268,11 @@ def generar_pdf_ags(datos: dict) -> str:
                     
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
                     pg.insert_image(rect, pixmap=qr_pix, overlay=True)
-                else:
-                    print("[PDF] No se pudo generar el QR")
             except Exception as e:
-                print(f"[PDF] Error QR con plantilla: {e}")
+                print(f"[PDF] Error QR: {e}")
 
         else:
-            print(f"[PDF] No se encuentra {PLANTILLA_PDF}, creando desde cero")
+            print(f"[PDF] Creando desde cero")
             doc = fitz.open()
             page = doc.new_page(width=595, height=842)
             
@@ -645,7 +301,6 @@ def generar_pdf_ags(datos: dict) -> str:
             page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0))
             y_pos += line_height
             
-            # Mostrar ambas fechas
             fecha_expedicion = datos["fecha_exp"].replace("/", " / ")
             fecha_vencimiento = datos["fecha_ven"].replace("/", " / ")
             page.insert_text((50, y_pos), f"Expedición: {fecha_expedicion}", fontsize=12, color=(0, 0, 0))
@@ -668,7 +323,7 @@ def generar_pdf_ags(datos: dict) -> str:
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
                     page.insert_image(rect, pixmap=qr_pix, overlay=True)
             except Exception as e:
-                print(f"[PDF] Error QR sin plantilla: {e}")
+                print(f"[PDF] Error QR: {e}")
 
         doc.save(out)
         doc.close()
@@ -694,9 +349,9 @@ async def start_cmd(message: types.Message, state: FSMContext):
     await state.clear()
     await enviar_mensaje_seguro(
         message.chat.id,
-        "🏛️ <b>Sistema Digital de Permisos Aguascalientes</b>\n\n"
-        f"💰 <b>Costo:</b> ${PRECIO_PERMISO} MXN\n"
-        "⏰ <b>Tiempo límite:</b> 12 horas (si no envía comprobante o clave admin, se elimina)\n"
+        "🏛️ Sistema Digital de Permisos Aguascalientes\n\n"
+        f"💰 Costo: ${PRECIO_PERMISO} MXN\n"
+        "⏰ Tiempo límite: 12 horas\n"
         "📋 Use /permiso para iniciar su trámite",
         parse_mode="HTML"
     )
@@ -707,15 +362,14 @@ async def permiso_cmd(message: types.Message, state: FSMContext):
     if activos:
         await enviar_mensaje_seguro(
             message.chat.id,
-            f"📋 <b>Folios activos:</b> {', '.join(activos)}\n"
-            f"Cada folio expira si no envías comprobante en <b>12h</b>.\n\n"
-            "<b>Paso 1/7:</b> Ingresa la <b>MARCA</b> del vehículo:",
+            f"📋 Folios activos: {', '.join(activos)}\n\n"
+            "Paso 1/7: Ingresa la MARCA del vehículo:",
             parse_mode="HTML"
         )
     else:
         await enviar_mensaje_seguro(
             message.chat.id,
-            "<b>Paso 1/7:</b> Ingresa la <b>MARCA</b> del vehículo:",
+            "Paso 1/7: Ingresa la MARCA del vehículo:",
             parse_mode="HTML"
         )
     await state.set_state(PermisoForm.marca)
@@ -724,108 +378,60 @@ async def permiso_cmd(message: types.Message, state: FSMContext):
 async def get_marca(message: types.Message, state: FSMContext):
     marca = limpiar_entrada(message.text)
     if not marca:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ Por favor ingresa una marca válida:",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa una marca válida:")
         return
     await state.update_data(marca=marca)
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        "<b>Paso 2/7:</b> Ingresa la <b>LÍNEA/MODELO</b>:",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, "Paso 2/7: Ingresa la LÍNEA/MODELO:")
     await state.set_state(PermisoForm.linea)
 
 @dp.message(PermisoForm.linea)
 async def get_linea(message: types.Message, state: FSMContext):
     linea = limpiar_entrada(message.text)
     if not linea:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ Por favor ingresa una línea/modelo válido:",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa una línea/modelo válido:")
         return
     await state.update_data(linea=linea)
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        "<b>Paso 3/7:</b> Ingresa el <b>AÑO (4 dígitos)</b>:",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, "Paso 3/7: Ingresa el AÑO (4 dígitos):")
     await state.set_state(PermisoForm.anio)
 
 @dp.message(PermisoForm.anio)
 async def get_anio(message: types.Message, state: FSMContext):
     anio = message.text.strip()
     if not anio.isdigit() or len(anio) != 4:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ El año debe tener 4 dígitos. Intenta de nuevo:",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ El año debe tener 4 dígitos. Intenta de nuevo:")
         return
     await state.update_data(anio=anio)
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        "<b>Paso 4/7:</b> Ingresa el <b>NÚMERO DE SERIE</b>:",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, "Paso 4/7: Ingresa el NÚMERO DE SERIE:")
     await state.set_state(PermisoForm.serie)
 
 @dp.message(PermisoForm.serie)
 async def get_serie(message: types.Message, state: FSMContext):
     serie = limpiar_entrada(message.text)
     if not serie:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ Por favor ingresa un número de serie válido:",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un número de serie válido:")
         return
     await state.update_data(serie=serie)
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        "<b>Paso 5/7:</b> Ingresa el <b>NÚMERO DE MOTOR</b>:",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, "Paso 5/7: Ingresa el NÚMERO DE MOTOR:")
     await state.set_state(PermisoForm.motor)
 
 @dp.message(PermisoForm.motor)
 async def get_motor(message: types.Message, state: FSMContext):
     motor = limpiar_entrada(message.text)
     if not motor:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ Por favor ingresa un número de motor válido:",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un número de motor válido:")
         return
     await state.update_data(motor=motor)
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        "<b>Paso 6/7:</b> Ingresa el <b>COLOR</b>:",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, "Paso 6/7: Ingresa el COLOR:")
     await state.set_state(PermisoForm.color)
 
 @dp.message(PermisoForm.color)
 async def get_color(message: types.Message, state: FSMContext):
     color = limpiar_entrada(message.text)
     if not color:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ Por favor ingresa un color válido:",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un color válido:")
         return
     await state.update_data(color=color)
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        "<b>Paso 7/7:</b> Ingresa el <b>NOMBRE COMPLETO del titular</b>:",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, "Paso 7/7: Ingresa el NOMBRE COMPLETO del titular:")
     await state.set_state(PermisoForm.nombre)
 
 @dp.message(PermisoForm.nombre)
@@ -833,11 +439,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
     datos = await state.get_data()
     nombre = limpiar_entrada(message.text)
     if not nombre:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ Por favor ingresa un nombre válido:",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un nombre válido:")
         return
     
     datos["nombre"] = nombre
@@ -853,39 +455,17 @@ async def get_nombre(message: types.Message, state: FSMContext):
 
     await enviar_mensaje_seguro(
         message.chat.id,
-        "🔄 <b>Generando permiso...</b>\n\n"
-        f"📄 <b>Folio:</b> {datos['folio']}\n"
-        f"👤 <b>Titular:</b> {datos['nombre']}\n"
-        "Se emitirá con QR que apunta directamente al estado del folio.",
-        parse_mode="HTML"
+        f"🔄 Generando permiso...\n"
+        f"📄 Folio: {datos['folio']}\n"
+        f"👤 Titular: {datos['nombre']}"
     )
 
     try:
-        pdf_path = generar_pdf_ags({
-            "folio": datos["folio"],
-            "marca": datos["marca"],
-            "linea": datos["linea"],
-            "anio": datos["anio"],
-            "serie": datos["serie"],
-            "motor": datos["motor"],
-            "color": datos["color"],
-            "nombre": datos["nombre"],
-            "fecha_exp": datos["fecha_exp"],
-            "fecha_ven": datos["fecha_ven"],
-            "fecha_exp_dt": datos["fecha_exp_dt"],
-            "fecha_ven_dt": datos["fecha_ven_dt"],
-        })
+        pdf_path = generar_pdf_ags(datos)
 
         await message.answer_document(
             FSInputFile(pdf_path),
-            caption=(
-                "📄 <b>PERMISO DIGITAL – AGUASCALIENTES</b>\n"
-                f"<b>Folio:</b> {datos['folio']}\n"
-                f"<b>Expedición:</b> {datos['fecha_exp']}\n"
-                f"<b>Vencimiento:</b> {datos['fecha_ven']}\n"
-                "🔳 QR para verificación rápida de estado"
-            ),
-            parse_mode="HTML"
+            caption=f"📄 PERMISO DIGITAL – AGUASCALIENTES\nFolio: {datos['folio']}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}"
         )
 
         supabase.table("folios_registrados").insert({
@@ -905,42 +485,20 @@ async def get_nombre(message: types.Message, state: FSMContext):
             "username": message.from_user.username or "Sin username"
         }).execute()
 
-        supabase.table("borradores_registros").upsert({
-            "folio": datos["folio"],
-            "entidad": ENTIDAD.upper(),
-            "numero_serie": datos["serie"],
-            "marca": datos["marca"],
-            "linea": datos["linea"],
-            "numero_motor": datos["motor"],
-            "anio": datos["anio"],
-            "color": datos["color"],
-            "contribuyente": datos["nombre"],
-            "fecha_expedicion": hoy.isoformat(),
-            "fecha_vencimiento": ven.isoformat(),
-            "estado": "PENDIENTE",
-            "user_id": message.from_user.id
-        }).execute()
-
         await iniciar_timer_12h(message.from_user.id, datos["folio"])
 
         await enviar_mensaje_seguro(
             message.chat.id,
-            f"💰 <b>INSTRUCCIONES DE PAGO</b>\n\n"
-            f"📄 <b>Folio:</b> {datos['folio']}\n"
-            f"💵 <b>Monto:</b> ${PRECIO_PERMISO} MXN\n"
-            f"⏰ <b>Tiempo límite:</b> 12 horas (si no envías comprobante, se elimina)\n\n"
-            "📸 <b>IMPORTANTE:</b> Envía la <b>foto</b> de tu comprobante aquí mismo para detener el timer.\n"
-            "🔑 <b>ADMIN:</b> Para validar manual, enviar <b>SERO&lt;folio&gt;</b> (ej. <code>SERO1292</code>).",
-            parse_mode="HTML"
+            f"💰 INSTRUCCIONES DE PAGO\n"
+            f"📄 Folio: {datos['folio']}\n"
+            f"💵 Monto: ${PRECIO_PERMISO} MXN\n"
+            f"⏰ Tiempo límite: 12 horas\n\n"
+            "📸 Envía la foto de tu comprobante aquí mismo.\n"
+            "🔑 ADMIN: Para validar manual, enviar SERO<folio> (ej. SERO1292)."
         )
 
     except Exception as e:
-        error_msg = sanitizar_texto(str(e))
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            f"❌ <b>ERROR:</b> {error_msg}\n\nIntenta de nuevo con /permiso",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, f"❌ ERROR: {e}\n\nIntenta de nuevo con /permiso")
     finally:
         await state.clear()
 
@@ -949,11 +507,7 @@ async def recibir_comprobante(message: types.Message):
     user_id = message.from_user.id
     folios = obtener_folios_usuario(user_id)
     if not folios:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "ℹ️ No tienes folios pendientes. Usa /permiso para iniciar uno nuevo.",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "ℹ️ No tienes folios pendientes. Usa /permiso para iniciar uno nuevo.")
         return
     
     folio = folios[-1]
@@ -966,18 +520,9 @@ async def recibir_comprobante(message: types.Message):
             "fecha_comprobante": now
         }).eq("folio", folio).execute()
 
-    with suppress(Exception):
-        supabase.table("borradores_registros").update({
-            "estado": "COMPROBANTE_ENVIADO",
-            "fecha_comprobante": now
-        }).eq("folio", folio).execute()
-
     await enviar_mensaje_seguro(
         message.chat.id,
-        f"✅ <b>Comprobante recibido</b>\n\n"
-        f"📄 <b>Folio:</b> {folio}\n"
-        f"⏹️ Timer detenido. Tu folio se conserva en el sistema mientras verificamos.",
-        parse_mode="HTML"
+        f"✅ Comprobante recibido\nFolio: {folio}\n⏹️ Timer detenido."
     )
 
 @dp.message(lambda m: m.text and m.text.strip().upper().startswith("SERO"))
@@ -985,49 +530,27 @@ async def codigo_admin(message: types.Message):
     texto = message.text.strip().upper()
     folio = texto.replace("SERO", "", 1).strip()
     if not folio or not folio.startswith("129"):
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "⚠️ Formato: <code>SERO1292</code> (folio debe iniciar con 129).",
-            parse_mode="HTML"
-        )
+        await enviar_mensaje_seguro(message.chat.id, "⚠️ Formato: SERO1292 (folio debe iniciar con 129).")
         return
 
     cancelar_timer_folio(folio)
     now = datetime.now().isoformat()
+    
     with suppress(Exception):
         supabase.table("folios_registrados").update({
             "estado": "VALIDADO_ADMIN",
             "fecha_comprobante": now
         }).eq("folio", folio).execute()
-    with suppress(Exception):
-        supabase.table("borradores_registros").update({
-            "estado": "VALIDADO_ADMIN",
-            "fecha_comprobante": now
-        }).eq("folio", folio).execute()
 
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        f"✅ <b>Validación admin exitosa</b>\n\n"
-        f"📄 <b>Folio:</b> {folio}\n"
-        f"⏹️ Timer detenido y folio preservado en Supabase.",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, f"✅ Validación admin exitosa\nFolio: {folio}")
 
-@dp.message(lambda m: m.text and any(p in m.text.lower() for p in ["costo","precio","cuanto","cuánto","pago","monto","depósito","deposito"]))
+@dp.message(lambda m: m.text and any(p in m.text.lower() for p in ["costo","precio","cuanto","pago","monto"]))
 async def responder_costo(message: types.Message):
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        f"💰 <b>Costo del permiso:</b> ${PRECIO_PERMISO} MXN\nUsa /permiso para iniciar tu trámite.",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, f"💰 Costo del permiso: ${PRECIO_PERMISO} MXN\nUsa /permiso para iniciar tu trámite.")
 
 @dp.message()
 async def fallback(message: types.Message):
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        "🏛️ Sistema Digital Aguascalientes. Usa /permiso para iniciar.",
-        parse_mode="HTML"
-    )
+    await enviar_mensaje_seguro(message.chat.id, "🏛️ Sistema Digital Aguascalientes. Usa /permiso para iniciar.")
 
 # ===================== FASTAPI + WEBHOOK =====================
 _keep_task = None
@@ -1055,7 +578,7 @@ app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="1.1.0")
 
 @app.get("/", response_class=HTMLResponse)
 async def health():
-    return f"""
+    return """
     <!DOCTYPE html>
     <html>
     <head>
@@ -1063,71 +586,23 @@ async def health():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
-            .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-            h1 {{ color: #2c3e50; text-align: center; }}
-            .status {{ background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-            .info {{ background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-            .search {{ margin: 20px 0; }}
-            .search input {{ width: 60%; padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; }}
-            .search button {{ padding: 10px 20px; font-size: 16px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; }}
-            .search button:hover {{ background: #1976D2; }}
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #2c3e50; text-align: center; }
+            .status { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>🏛️ Sistema Digital de Permisos - Aguascalientes</h1>
-            
             <div class="status">
                 <h3>📊 Estado del Sistema</h3>
                 <ul>
-                    <li><strong>Timers activos:</strong> {len(timers_activos)}</li>
-                    <li><strong>Entidad:</strong> {ENTIDAD.upper()}</li>
-                    <li><strong>Plantilla PDF:</strong> {PLANTILLA_PDF}</li>
-                    <li><strong>Costo:</strong> ${PRECIO_PERMISO} MXN</li>
                     <li><strong>Estado:</strong> ✅ En línea</li>
+                    <li><strong>Costo:</strong> $180 MXN</li>
                 </ul>
             </div>
-
-            <div class="info">
-                <h3>🔍 Consulta de Folios</h3>
-                <p>Puedes consultar el estado de cualquier folio ingresando el número completo:</p>
-                <div class="search">
-                    <input type="text" id="folioInput" placeholder="Ej: 1292, 1293, etc." />
-                    <button onclick="buscarFolio()">Consultar</button>
-                </div>
-            </div>
-
-            <div class="info">
-                <h3>📱 Bot de Telegram</h3>
-                <p>Para generar un nuevo permiso, búscanos en Telegram y usa el comando <code>/permiso</code></p>
-                <p><strong>Proceso:</strong></p>
-                <ol>
-                    <li>Envía <code>/permiso</code> al bot</li>
-                    <li>Completa los 7 pasos del formulario</li>
-                    <li>Recibe tu PDF con QR dinámico</li>
-                    <li>Envía comprobante de pago (foto)</li>
-                    <li>¡Listo! Tu permiso está validado</li>
-                </ol>
-            </div>
         </div>
-
-        <script>
-            function buscarFolio() {{
-                const folio = document.getElementById('folioInput').value.trim();
-                if (folio) {{
-                    window.location.href = '/consulta_folio/' + folio;
-                }} else {{
-                    alert('Por favor ingresa un número de folio');
-                }}
-            }}
-            
-            document.getElementById('folioInput').addEventListener('keypress', function(e) {{
-                if (e.key === 'Enter') {{
-                    buscarFolio();
-                }}
-            }});
-        </script>
     </body>
     </html>
     """
@@ -1141,487 +616,563 @@ async def telegram_webhook(request: Request):
         return {"ok": True}
     except Exception as e:
         print(f"[WEBHOOK] Error: {e}")
-        try:
-            body = await request.body()
-            print(f"[WEBHOOK] Request body: {body.decode()[:500]}...")
-        except:
-            pass
         return {"ok": False, "error": str(e)}
 
-# ===================== ENDPOINT DE ESTADO QR =====================
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str):
-    """Endpoint simplificado para mostrar solo el estado del folio"""
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
         res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
         row = (res.data or [None])[0]
         
         if not row:
-            return HTMLResponse(f"""
-            <!DOCTYPE html>
+            return HTMLResponse("""
             <html>
             <head>
-                <title>Estado del Folio - Aguascalientes</title>
+                <title>Folio No Encontrado</title>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
-                    body {{ font-family: 'Montserrat', sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }}
-                    .card {{ background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }}
-                    .status-icon {{ font-size: 60px; margin-bottom: 20px; }}
-                    .status-title {{ font-size: 24px; font-weight: bold; color: #e74c3c; margin-bottom: 15px; }}
-                    .folio-number {{ font-size: 20px; color: #2c3e50; margin-bottom: 20px; background: #f8f9fa; padding: 10px; border-radius: 10px; }}
-                    .message {{ color: #7f8c8d; line-height: 1.6; }}
-                    .back-btn {{ background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 10px; display: inline-block; margin-top: 20px; font-weight: 500; }}
+                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                    .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; text-align: center; }
                 </style>
             </head>
             <body>
-                <div class="card">
-                    <div class="status-icon">❌</div>
-                    <div class="status-title">Folio No Encontrado</div>
-                    <div class="folio-number">Folio: {folio_limpio}</div>
-                    <div class="message">Este folio no existe en el sistema o fue eliminado por vencimiento.</div>
-                    <a href="/" class="back-btn">Volver al Inicio</a>
+                <div class="container">
+                    <div class="error">
+                        <h2>❌ Folio No Encontrado</h2>
+                        <p>El folio consultado no existe en el sistema.</p>
+                    </div>
                 </div>
             </body>
             </html>
             """, status_code=404)
-
-        # Verificar estado
-        estado = row.get('estado', 'DESCONOCIDO')
-        fecha_ven = row.get('fecha_vencimiento', '')
-        esta_vencido = False
         
-        if fecha_ven:
-            try:
-                fecha_ven_dt = datetime.fromisoformat(fecha_ven)
-                hoy = datetime.now(ZoneInfo(TZ)).replace(tzinfo=None)
-                esta_vencido = hoy > fecha_ven_dt
-            except:
-                pass
-
-        if esta_vencido:
-            status_color = "#f39c12"
-            status_icon = "⚠️"
-            status_title = "FOLIO EXPIRADO"
-            status_message = f"El folio {folio_limpio} ha expirado y no es válido para circular."
-            card_bg = "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)"
-        elif estado in ['VALIDADO_ADMIN', 'COMPROBANTE_ENVIADO']:
-            status_color = "#27ae60"
-            status_icon = "✅"
-            status_title = "FOLIO VIGENTE"
-            status_message = f"El folio {folio_limpio} se encuentra vigente y válido para circular."
-            card_bg = "linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)"
-        else:
-            status_color = "#f39c12"
-            status_icon = "⏳"
-            status_title = "FOLIO PENDIENTE"
-            status_message = f"El folio {folio_limpio} está pendiente de validación."
-            card_bg = "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)"
-
-        return HTMLResponse(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Estado del Folio {folio_limpio} - Aguascalientes</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-            <style>
-                body {{ 
-                    font-family: 'Montserrat', sans-serif; 
-                    margin: 0; 
-                    padding: 20px; 
-                    background: {card_bg}; 
-                    min-height: 100vh; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                }}
-                .card {{ 
-                    background: white; 
-                    padding: 40px; 
-                    border-radius: 20px; 
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.2); 
-                    text-align: center; 
-                    max-width: 400px; 
-                    width: 100%; 
-                }}
-                .status-icon {{ 
-                    font-size: 80px; 
-                    margin-bottom: 20px; 
-                    animation: pulse 2s infinite;
-                }}
-                @keyframes pulse {{
-                    0% {{ transform: scale(1); }}
-                    50% {{ transform: scale(1.1); }}
-                    100% {{ transform: scale(1); }}
-                }}
-                .status-title {{ 
-                    font-size: 28px; 
-                    font-weight: bold; 
-                    color: {status_color}; 
-                    margin-bottom: 15px; 
-                }}
-                .folio-number {{ 
-                    font-size: 24px; 
-                    color: #2c3e50; 
-                    margin-bottom: 20px; 
-                    background: #f8f9fa; 
-                    padding: 15px; 
-                    border-radius: 15px; 
-                    font-weight: bold;
-                    letter-spacing: 2px;
-                }}
-                .message {{ 
-                    color: #34495e; 
-                    line-height: 1.6; 
-                    font-size: 16px;
-                    margin-bottom: 20px;
-                }}
-                .details {{ 
-                    background: #f8f9fa; 
-                    padding: 20px; 
-                    border-radius: 15px; 
-                    margin: 20px 0; 
-                    text-align: left;
-                }}
-                .detail-row {{ 
-                    display: flex; 
-                    justify-content: space-between; 
-                    margin: 8px 0; 
-                    padding: 5px 0;
-                    border-bottom: 1px solid #ecf0f1;
-                }}
-                .detail-row:last-child {{ border-bottom: none; }}
-                .detail-label {{ 
-                    font-weight: 600; 
-                    color: #7f8c8d; 
-                }}
-                .detail-value {{ 
-                    color: #2c3e50; 
-                    font-weight: 500;
-                }}
-                .back-btn {{ 
-                    background: #3498db; 
-                    color: white; 
-                    padding: 15px 30px; 
-                    text-decoration: none; 
-                    border-radius: 10px; 
-                    display: inline-block; 
-                    margin: 10px 5px; 
-                    font-weight: 600;
-                    transition: all 0.3s ease;
-                }}
-                .back-btn:hover {{ 
-                    background: #2980b9; 
-                    transform: translateY(-2px);
-                }}
-                .footer {{ 
-                    margin-top: 30px; 
-                    color: #95a5a6; 
-                    font-size: 12px; 
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <div class="status-icon">{status_icon}</div>
-                <div class="status-title">{status_title}</div>
-                <div class="folio-number">{folio_limpio}</div>
-                <div class="message">{status_message}</div>
-                
-                <div class="details">
-                    <div class="detail-row">
-                        <span class="detail-label">Titular:</span>
-                        <span class="detail-value">{row.get('contribuyente', 'N/A')}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Vehículo:</span>
-# ===================== ENDPOINT DE ESTADO QR =====================
-@app.get("/estado_folio/{folio}", response_class=HTMLResponse)
-async def estado_folio(folio: str):
-    """Endpoint simplificado para mostrar solo el estado del folio"""
-    try:
-        folio_limpio = ''.join(c for c in folio if c.isalnum())
-        res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
-        row = (res.data or [None])[0]
+        # Verificar si está vigente
+        hoy = datetime.now(ZoneInfo(TZ)).date()
+        fecha_ven = datetime.fromisoformat(row['fecha_vencimiento']).date()
+        vigente = hoy <= fecha_ven
         
-        if not row:
-            return HTMLResponse(f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Estado del Folio - Aguascalientes</title>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body {{ font-family: 'Montserrat', sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }}
-                    .card {{ background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }}
-                    .status-icon {{ font-size: 60px; margin-bottom: 20px; }}
-                    .status-title {{ font-size: 24px; font-weight: bold; color: #e74c3c; margin-bottom: 15px; }}
-                    .folio-number {{ font-size: 20px; color: #2c3e50; margin-bottom: 20px; background: #f8f9fa; padding: 10px; border-radius: 10px; }}
-                    .message {{ color: #7f8c8d; line-height: 1.6; }}
-                    .back-btn {{ background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 10px; display: inline-block; margin-top: 20px; font-weight: 500; }}
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <div class="status-icon">❌</div>
-                    <div class="status-title">Folio No Encontrado</div>
-                    <div class="folio-number">Folio: {folio_limpio}</div>
-                    <div class="message">Este folio no existe en el sistema o fue eliminado por vencimiento.</div>
-                    <a href="/" class="back-btn">Volver al Inicio</a>
-                </div>
-            </body>
-            </html>
-            """, status_code=404)
-
-        # Verificar estado
-        estado = row.get('estado', 'DESCONOCIDO')
-        fecha_ven = row.get('fecha_vencimiento', '')
-        esta_vencido = False
-        
-        if fecha_ven:
-            try:
-                fecha_ven_dt = datetime.fromisoformat(fecha_ven)
-                hoy = datetime.now(ZoneInfo(TZ)).replace(tzinfo=None)
-                esta_vencido = hoy > fecha_ven_dt
-            except:
-                pass
-
-        if esta_vencido:
-            status_color = "#f39c12"
-            status_icon = "⚠️"
-            status_title = "FOLIO EXPIRADO"
-            status_message = f"El folio {folio_limpio} ha expirado y no es válido para circular."
-            card_bg = "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)"
-        elif estado in ['VALIDADO_ADMIN', 'COMPROBANTE_ENVIADO']:
-            status_color = "#27ae60"
-            status_icon = "✅"
-            status_title = "FOLIO VIGENTE"
-            status_message = f"El folio {folio_limpio} se encuentra vigente y válido para circular."
-            card_bg = "linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)"
-        else:
-            status_color = "#f39c12"
-            status_icon = "⏳"
-            status_title = "FOLIO PENDIENTE"
-            status_message = f"El folio {folio_limpio} está pendiente de validación."
-            card_bg = "linear-gradient(135deg, #f39c12 0%, #e67e22 100%)"
-
-        return HTMLResponse(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Estado del Folio {folio_limpio} - Aguascalientes</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-            <style>
-                body {{ 
-                    font-family: 'Montserrat', sans-serif; 
-                    margin: 0; 
-                    padding: 20px; 
-                    background: {card_bg}; 
-                    min-height: 100vh; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                }}
-                .card {{ 
-                    background: white; 
-                    padding: 40px; 
-                    border-radius: 20px; 
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.2); 
-                    text-align: center; 
-                    max-width: 400px; 
-                    width: 100%; 
-                }}
-                .status-icon {{ 
-                    font-size: 80px; 
-                    margin-bottom: 20px; 
-                    animation: pulse 2s infinite;
-                }}
-                @keyframes pulse {{
-                    0% {{ transform: scale(1); }}
-                    50% {{ transform: scale(1.1); }}
-                    100% {{ transform: scale(1); }}
-                }}
-                .status-title {{ 
-                    font-size: 28px; 
-                    font-weight: bold; 
-                    color: {status_color}; 
-                    margin-bottom: 15px; 
-                }}
-                .folio-number {{ 
-                    font-size: 24px; 
-                    color: #2c3e50; 
-                    margin-bottom: 20px; 
-                    background: #f8f9fa; 
-                    padding: 15px; 
-                    border-radius: 15px; 
-                    font-weight: bold;
-                    letter-spacing: 2px;
-                }}
-                .message {{ 
-                    color: #34495e; 
-                    line-height: 1.6; 
-                    font-size: 16px;
-                    margin-bottom: 20px;
-                }}
-                .details {{ 
-                    background: #f8f9fa; 
-                    padding: 20px; 
-                    border-radius: 15px; 
-                    margin: 20px 0; 
-                    text-align: left;
-                }}
-                .detail-row {{ 
-                    display: flex; 
-                    justify-content: space-between; 
-                    margin: 8px 0; 
-                    padding: 5px 0;
-                    border-bottom: 1px solid #ecf0f1;
-                }}
-                .detail-row:last-child {{ border-bottom: none; }}
-                .detail-label {{ 
-                    font-weight: 600; 
-                    color: #7f8c8d; 
-                }}
-                .detail-value {{ 
-                    color: #2c3e50; 
-                    font-weight: 500;
-                }}
-                .back-btn {{ 
-                    background: #3498db; 
-                    color: white; 
-                    padding: 15px 30px; 
-                    text-decoration: none; 
-                    border-radius: 10px; 
-                    display: inline-block; 
-                    margin: 10px 5px; 
-                    font-weight: 600;
-                    transition: all 0.3s ease;
-                }}
-                .back-btn:hover {{ 
-                    background: #2980b9; 
-                    transform: translateY(-2px);
-                }}
-                .footer {{ 
-                    margin-top: 30px; 
-                    color: #95a5a6; 
-                    font-size: 12px; 
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <div class="status-icon">{status_icon}</div>
-                <div class="status-title">{status_title}</div>
-                <div class="folio-number">{folio_limpio}</div>
-                <div class="message">{status_message}</div>
-                
-                <div class="details">
-                    <div class="detail-row">
-                        <span class="detail-label">Titular:</span>
-                        <span class="detail-value">{row.get('contribuyente', 'N/A')}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Vehículo:</span>
-                        <span class="detail-value">{row.get('marca', '')} {row.get('linea', '')}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Año:</span>
-                        <span class="detail-value">{row.get('anio', 'N/A')}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Serie:</span>
-                        <span class="detail-value">{row.get('numero_serie', 'N/A')}</span>
-                    </div>
-                </div>
-                
-                <a href="/consulta_folio/{folio_limpio}" class="back-btn">Ver Detalles Completos</a>
-                <a href="/" class="back-btn">Volver al Portal</a>
-                
-                <div class="footer">
-                    Gobierno de Aguascalientes<br>
-                    Consulta realizada: {datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y %H:%M")}
-                </div>
-            </div>
-        </body>
-        </html>
-        """, status_code=200)
+        return HTMLResponse(renderizar_resultado_consulta(row, vigente))
         
     except Exception as e:
-        print(f"[ESTADO] Error: {e}")
+        print(f"[CONSULTA] Error: {e}")
         return HTMLResponse(f"""
-        <!DOCTYPE html>
         <html>
         <head>
-            <title>Error - Aguascalientes</title>
+            <title>Error del Sistema</title>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-                .error {{ color: #d32f2f; }}
-                .back-btn {{ background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                .error {{ background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; text-align: center; }}
             </style>
         </head>
         <body>
             <div class="container">
-                <h2 class="error">❌ Error del Sistema</h2>
-                <p>Ocurrió un error al consultar el estado del folio. Por favor intenta de nuevo más tarde.</p>
-                <a href="/" class="back-btn">Volver al Inicio</a>
+                <div class="error">
+                    <h2>⚠️ Error del Sistema</h2>
+                    <p>Ocurrió un error al consultar el folio. Intenta más tarde.</p>
+                    <p><small>Error: {str(e)}</small></p>
+                </div>
             </div>
         </body>
         </html>
         """, status_code=500)
 
-# ===================== ENDPOINT CON TEMPLATES =====================
-@app.get("/consulta_folio/{folio}", response_class=HTMLResponse)
-async def consulta_folio(folio: str):
+@app.get("/consulta")
+async def consulta_form():
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Consulta de Folio - Aguascalientes</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 0; 
+                padding: 20px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .container { 
+                max-width: 500px; 
+                margin: 0 auto; 
+                background: white; 
+                padding: 40px; 
+                border-radius: 15px; 
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            h1 { 
+                color: #2c3e50; 
+                text-align: center; 
+                margin-bottom: 30px;
+                font-size: 24px;
+            }
+            .form-group { 
+                margin-bottom: 20px; 
+            }
+            label { 
+                display: block; 
+                margin-bottom: 8px; 
+                color: #555; 
+                font-weight: bold;
+            }
+            input[type="text"] { 
+                width: 100%; 
+                padding: 12px; 
+                border: 2px solid #ddd; 
+                border-radius: 8px; 
+                font-size: 16px;
+                box-sizing: border-box;
+                transition: border-color 0.3s;
+            }
+            input[type="text"]:focus { 
+                outline: none; 
+                border-color: #667eea; 
+            }
+            button { 
+                width: 100%; 
+                padding: 15px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                color: white; 
+                border: none; 
+                border-radius: 8px; 
+                font-size: 16px; 
+                font-weight: bold;
+                cursor: pointer;
+                transition: transform 0.2s;
+            }
+            button:hover { 
+                transform: translateY(-2px); 
+            }
+            .info { 
+                background: #e3f2fd; 
+                padding: 15px; 
+                border-radius: 8px; 
+                margin-bottom: 20px; 
+                text-align: center;
+                color: #1976d2;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🏛️ Consulta de Folio</h1>
+            <div class="info">
+                <strong>Sistema Digital de Permisos - Aguascalientes</strong>
+            </div>
+            <form onsubmit="consultarFolio(event)">
+                <div class="form-group">
+                    <label for="folio">Número de Folio:</label>
+                    <input type="text" id="folio" name="folio" placeholder="Ej: 1292" required>
+                </div>
+                <button type="submit">🔍 Consultar Estado</button>
+            </form>
+        </div>
+        
+        <script>
+        function consultarFolio(event) {
+            event.preventDefault();
+            const folio = document.getElementById('folio').value.trim();
+            if (folio) {
+                window.location.href = `/estado_folio/${folio}`;
+            }
+        }
+        </script>
+    </body>
+    </html>
+    """)
+
+@app.get("/stats")
+async def estadisticas():
     try:
-        # Limpiar el folio de entrada
-        folio_limpio = ''.join(c for c in folio if c.isalnum())
+        # Estadísticas básicas
+        total = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).execute()
+        pendientes = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "PENDIENTE").execute()
+        validados = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "VALIDADO_ADMIN").execute()
+        con_comprobante = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "COMPROBANTE_ENVIADO").execute()
         
-        # Buscar en la base de datos
-        res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
-        row = (res.data or [None])[0]
+        total_count = total.count or 0
+        pendientes_count = pendientes.count or 0
+        validados_count = validados.count or 0
+        comprobante_count = con_comprobante.count or 0
         
-        # Preparar datos para el template
-        folio_data = preparar_datos_folio(row)
-        if not row:
-            folio_data['folio'] = folio_limpio
+        timers_count = len(timers_activos)
         
-        # Renderizar usando template
-        html_content = renderizar_consulta_folio(folio_data, BASE_URL)
-        
-        return HTMLResponse(html_content, status_code=200 if row else 404)
+        return HTMLResponse(f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Estadísticas - Sistema Aguascalientes</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{ 
+                    font-family: Arial, sans-serif; 
+                    margin: 0; 
+                    padding: 20px; 
+                    background: #f5f7fa;
+                }}
+                .container {{ 
+                    max-width: 800px; 
+                    margin: 0 auto; 
+                    background: white; 
+                    padding: 30px; 
+                    border-radius: 10px; 
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+                }}
+                h1 {{ 
+                    color: #2c3e50; 
+                    text-align: center; 
+                    margin-bottom: 30px;
+                }}
+                .stats-grid {{ 
+                    display: grid; 
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+                    gap: 20px; 
+                    margin-bottom: 30px;
+                }}
+                .stat-card {{ 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    color: white; 
+                    padding: 20px; 
+                    border-radius: 10px; 
+                    text-align: center;
+                }}
+                .stat-number {{ 
+                    font-size: 2em; 
+                    font-weight: bold; 
+                    margin-bottom: 5px;
+                }}
+                .stat-label {{ 
+                    font-size: 0.9em; 
+                    opacity: 0.9;
+                }}
+                .info-section {{ 
+                    background: #f8f9fa; 
+                    padding: 20px; 
+                    border-radius: 8px; 
+                    margin-top: 20px;
+                }}
+                .refresh-btn {{ 
+                    background: #28a745; 
+                    color: white; 
+                    border: none; 
+                    padding: 10px 20px; 
+                    border-radius: 5px; 
+                    cursor: pointer; 
+                    float: right;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>📊 Estadísticas del Sistema</h1>
+                <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar</button>
+                <div style="clear: both;"></div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{total_count}</div>
+                        <div class="stat-label">Total Folios</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{pendientes_count}</div>
+                        <div class="stat-label">Pendientes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{comprobante_count}</div>
+                        <div class="stat-label">Con Comprobante</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{validados_count}</div>
+                        <div class="stat-label">Validados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{timers_count}</div>
+                        <div class="stat-label">Timers Activos</div>
+                    </div>
+                </div>
+                
+                <div class="info-section">
+                    <h3>ℹ️ Información del Sistema</h3>
+                    <ul>
+                        <li><strong>Entidad:</strong> {ENTIDAD.upper()}</li>
+                        <li><strong>Costo por permiso:</strong> ${PRECIO_PERMISO} MXN</li>
+                        <li><strong>Tiempo límite:</strong> 12 horas</li>
+                        <li><strong>Zona horaria:</strong> {TZ}</li>
+                        <li><strong>Última actualización:</strong> {datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y %H:%M:%S")}</li>
+                    </ul>
+                </div>
+            </div>
+        </body>
+        </html>
+        """)
         
     except Exception as e:
-        print(f"[CONSULTA] Error: {e}")
-        # Template de error simple
-        error_data = {
-            'folio': folio,
-            'estado': 'ERROR',
-            'esta_vencido': False,
-            'fecha_expedicion': 'N/A',
-            'fecha_vencimiento': 'N/A',
-            'marca': 'N/A',
-            'linea': 'N/A',
-            'anio': 'N/A',
-            'numero_serie': 'N/A',
-            'numero_motor': 'N/A',
-            'contribuyente': 'N/A',
-            'entidad': 'N/A'
+        return HTMLResponse(f"""
+        <html>
+        <body>
+            <h1>Error en Estadísticas</h1>
+            <p>Error: {str(e)}</p>
+        </body>
+        </html>
+        """, status_code=500)
+
+# ===================== CREAR TEMPLATE HTML =====================
+def crear_template_resultado():
+    template_content = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Consulta de Folio {{ folio }}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: {% if vigente %}linear-gradient(135deg, #4CAF50 0%, #45a049 100%){% else %}linear-gradient(135deg, #f44336 0%, #d32f2f 100%){% endif %};
+            min-height: 100vh;
         }
-        html_content = renderizar_consulta_folio(error_data, BASE_URL)
-        return HTMLResponse(html_content, status_code=500)
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+        }
+        .status { 
+            padding: 15px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin-bottom: 30px; 
+            font-weight: bold; 
+            font-size: 18px;
+        }
+        .vigente { 
+            background: #e8f5e8; 
+            color: #2e7d32; 
+            border: 2px solid #4caf50;
+        }
+        .vencido { 
+            background: #ffebee; 
+            color: #c62828; 
+            border: 2px solid #f44336;
+        }
+        .datos { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 20px;
+        }
+        .dato-row { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 8px 0; 
+            border-bottom: 1px solid #eee;
+        }
+        .dato-row:last-child { 
+            border-bottom: none; 
+        }
+        .dato-label { 
+            font-weight: bold; 
+            color: #555; 
+        }
+        .dato-value { 
+            color: #333; 
+        }
+        .folio-destacado { 
+            font-size: 2em; 
+            font-weight: bold; 
+            color: #2c3e50; 
+            text-align: center; 
+            margin: 20px 0;
+        }
+        .footer { 
+            text-align: center; 
+            color: #666; 
+            font-size: 0.9em; 
+            margin-top: 30px;
+        }
+        .btn-nueva { 
+            display: inline-block; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 12px 24px; 
+            text-decoration: none; 
+            border-radius: 8px; 
+            margin-top: 20px; 
+            font-weight: bold;
+        }
+        .btn-nueva:hover { 
+            opacity: 0.9; 
+        }
+        @media (max-width: 600px) {
+            .container { 
+                margin: 10px; 
+                padding: 20px; 
+            }
+            .dato-row { 
+                flex-direction: column; 
+                gap: 5px; 
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ Sistema Digital de Permisos</h1>
+            <h2>Estado de Aguascalientes</h2>
+        </div>
+        
+        <div class="folio-destacado">
+            Folio: {{ folio }}
+        </div>
+        
+        <div class="status {% if vigente %}vigente{% else %}vencido{% endif %}">
+            {% if vigente %}
+                ✅ PERMISO VIGENTE
+            {% else %}
+                ❌ PERMISO VENCIDO
+            {% endif %}
+        </div>
+        
+        <div class="datos">
+            <h3 style="margin-top: 0; color: #2c3e50;">📋 Datos del Vehículo</h3>
+            
+            <div class="dato-row">
+                <span class="dato-label">🚗 Marca:</span>
+                <span class="dato-value">{{ marca }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">🏷️ Línea/Modelo:</span>
+                <span class="dato-value">{{ linea }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">📅 Año:</span>
+                <span class="dato-value">{{ anio }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">🎨 Color:</span>
+                <span class="dato-value">{{ color }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">🔢 No. Serie:</span>
+                <span class="dato-value">{{ serie }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">⚙️ No. Motor:</span>
+                <span class="dato-value">{{ motor }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">👤 Titular:</span>
+                <span class="dato-value">{{ nombre }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">📅 Expedición:</span>
+                <span class="dato-value">{{ expedicion }}</span>
+            </div>
+            
+            <div class="dato-row">
+                <span class="dato-label">⏰ Estado:</span>
+                <span class="dato-value">{{ vigencia }}</span>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="/consulta" class="btn-nueva">🔍 Nueva Consulta</a>
+        </div>
+        
+        <div class="footer">
+            <p>Sistema Digital de Permisos - Gobierno del Estado de Aguascalientes</p>
+            <p><small>Consulta realizada el {{ "now"|date("%d/%m/%Y %H:%M:%S") }}</small></p>
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    template_path = os.path.join(TEMPLATES_DIR, "resultado_consulta.html")
+    with open(template_path, 'w', encoding='utf-8') as f:
+        f.write(template_content)
+    return template_path
+
+# Crear el template al inicializar
+crear_template_resultado()
+
+# ===================== HEALTH CHECK AVANZADO =====================
+@app.get("/health")
+async def health_check():
+    try:
+        # Verificar conexión a Supabase
+        test_query = supabase.table("folios_registrados").select("count", count="exact").limit(1).execute()
+        db_status = "✅ Conectado" if test_query else "❌ Error"
+        
+        # Verificar bot
+        bot_info = await bot.get_me()
+        bot_status = f"✅ @{bot_info.username}" if bot_info else "❌ Error"
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
+            "services": {
+                "database": db_status,
+                "telegram_bot": bot_status,
+                "timers_activos": len(timers_activos),
+                "usuarios_con_folios": len(user_folios)
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "error", 
+            "error": str(e),
+            "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()
+        }
+
+# ===================== ENDPOINT DE LIMPIEZA =====================
+@app.post("/admin/cleanup")
+async def cleanup_expired(admin_key: str = ""):
+    if admin_key != "AGS2024":  # Cambiar por una clave segura
+        return {"error": "Unauthorized"}
+    
+    try:
+        # Limpiar folios vencidos sin comprobante
+        cutoff = datetime.now(ZoneInfo(TZ)) - timedelta(hours=12)
+        expired = supabase.table("folios_registrados").select("folio").eq("entidad", ENTIDAD).eq("estado", "PENDIENTE").lt("created_at", cutoff.isoformat()).execute()
+        
+        deleted_count = 0
+        for record in (expired.data or []):
+            folio = record["folio"]
+            supabase.table("folios_registrados").delete().eq("folio", folio).execute()
+            cancelar_timer_folio(folio)
+            deleted_count += 1
+        
+        return {
+            "status": "success",
+            "deleted_folios": deleted_count,
+            "remaining_timers": len(timers_activos)
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
-                                                
-                     
+    uvicorn.run(app, host="0.0.0.0", port=8000)

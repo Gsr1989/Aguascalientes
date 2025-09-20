@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
@@ -131,10 +132,153 @@ def obtener_folios_usuario(user_id: int):
 
 # ===================== FUNCIONES DE TEMPLATES =====================
 def crear_template_resultado():
+    template_content = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultado de Consulta - {{ folio }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        
+        .header {
+            width: 100%;
+            text-align: center;
+        }
+        
+        .header img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .content {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .resultado-box {
+            {% if vigente %}
+            background-color: #e8f5e8;
+            border: 2px solid #4caf50;
+            color: #2d5730;
+            {% else %}
+            background-color: #ffeaea;
+            border: 2px solid #f44336;
+            color: #8b2635;
+            {% endif %}
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+            font-size: 16px;
+            line-height: 1.8;
+        }
+        
+        .dato {
+            margin: 12px 0;
+            font-weight: bold;
+            text-align: left;
+        }
+        
+        .boton-salir {
+            margin: 30px 0;
+        }
+        
+        .boton-salir a {
+            background-color: #2196F3;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        
+        .boton-salir a:hover {
+            background-color: #1976D2;
+        }
+        
+        .footer {
+            width: 100%;
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        .footer img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                width: 100%;
+                margin: 0;
+            }
+            
+            .content {
+                padding: 15px;
+            }
+            
+            .resultado-box {
+                padding: 20px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Encabezado -->
+        <div class="header">
+            <img src="/static/encabezado.png" alt="Encabezado Aguascalientes">
+        </div>
+        
+        <!-- Contenido -->
+        <div class="content">
+            <div class="resultado-box">
+                <div class="dato">Folio: {{ folio }}</div>
+                <div class="dato">Marca: {{ marca }}</div>
+                <div class="dato">Línea: {{ linea }}</div>
+                <div class="dato">Año: {{ anio }}</div>
+                <div class="dato">Serie: {{ serie }}</div>
+                <div class="dato">Número de motor: {{ motor }}</div>
+                <div class="dato">Color: {{ color }}</div>
+                <div class="dato">Nombre: {{ nombre }}</div>
+                <div class="dato">Vigencia: {{ vigencia }}</div>
+                <div class="dato">Expedición: {{ expedicion }}</div>
+            </div>
+            
+            <div class="boton-salir">
+                <a href="https://epagos.aguascalientes.gob.mx/contribuciones/default.aspx?opcion=CapturaPlacaSIIF.aspx">Salir</a>
+            </div>
+        </div>
+        
+        <!-- Pie de página -->
+        <div class="footer">
+            <img src="/static/pie.png" alt="Pie Aguascalientes">
+        </div>
+    </div>
+</body>
+</html>"""
+    
     template_path = os.path.join(TEMPLATES_DIR, "resultado_consulta.html")
-    if not os.path.exists(template_path):
-        # El template ya está creado como archivo separado
-        pass
+    with open(template_path, 'w', encoding='utf-8') as f:
+        f.write(template_content)
     return template_path
 
 def renderizar_resultado_consulta(row, vigente=True):
@@ -150,6 +294,9 @@ def renderizar_resultado_consulta(row, vigente=True):
             except:
                 pass
         
+        # Agregar fecha actual formateada
+        fecha_actual = datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y %H:%M:%S")
+        
         datos = {
             'folio': row.get('folio', ''),
             'marca': row.get('marca', ''),
@@ -161,7 +308,8 @@ def renderizar_resultado_consulta(row, vigente=True):
             'nombre': row.get('contribuyente', ''),
             'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
             'expedicion': fecha_exp,
-            'vigente': vigente
+            'vigente': vigente,
+            'fecha_consulta': fecha_actual
         }
         
         return template.render(**datos)
@@ -576,6 +724,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="1.1.0")
 
+# Configurar archivos estáticos desde la raíz del proyecto
+app.mount("/static", StaticFiles(directory="."), name="static")
+
 @app.get("/", response_class=HTMLResponse)
 async def health():
     return """
@@ -618,520 +769,8 @@ async def telegram_webhook(request: Request):
         print(f"[WEBHOOK] Error: {e}")
         return {"ok": False, "error": str(e)}
 
-@app.get("/estado_folio/{folio}", response_class=HTMLResponse)
-async def estado_folio(folio: str):
-    try:
-        folio_limpio = ''.join(c for c in folio if c.isalnum())
-        res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
-        row = (res.data or [None])[0]
-        
-        if not row:
-            return HTMLResponse("""
-            <html>
-            <head>
-                <title>Folio No Encontrado</title>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-                    .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                    .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; text-align: center; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="error">
-                        <h2>❌ Folio No Encontrado</h2>
-                        <p>El folio consultado no existe en el sistema.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """, status_code=404)
-        
-        # Verificar si está vigente
-        hoy = datetime.now(ZoneInfo(TZ)).date()
-        fecha_ven = datetime.fromisoformat(row['fecha_vencimiento']).date()
-        vigente = hoy <= fecha_ven
-        
-        return HTMLResponse(renderizar_resultado_consulta(row, vigente))
-        
-    except Exception as e:
-        print(f"[CONSULTA] Error: {e}")
-        return HTMLResponse(f"""
-        <html>
-        <head>
-            <title>Error del Sistema</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-                .error {{ background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; text-align: center; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="error">
-                    <h2>⚠️ Error del Sistema</h2>
-                    <p>Ocurrió un error al consultar el folio. Intenta más tarde.</p>
-                    <p><small>Error: {str(e)}</small></p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """, status_code=500)
-
-@app.get("/consulta")
-async def consulta_form():
-    return HTMLResponse("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Consulta de Folio - Aguascalientes</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body { 
-                font-family: Arial, sans-serif; 
-                margin: 0; 
-                padding: 20px; 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-            }
-            .container { 
-                max-width: 500px; 
-                margin: 0 auto; 
-                background: white; 
-                padding: 40px; 
-                border-radius: 15px; 
-                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            }
-            h1 { 
-                color: #2c3e50; 
-                text-align: center; 
-                margin-bottom: 30px;
-                font-size: 24px;
-            }
-            .form-group { 
-                margin-bottom: 20px; 
-            }
-            label { 
-                display: block; 
-                margin-bottom: 8px; 
-                color: #555; 
-                font-weight: bold;
-            }
-            input[type="text"] { 
-                width: 100%; 
-                padding: 12px; 
-                border: 2px solid #ddd; 
-                border-radius: 8px; 
-                font-size: 16px;
-                box-sizing: border-box;
-                transition: border-color 0.3s;
-            }
-            input[type="text"]:focus { 
-                outline: none; 
-                border-color: #667eea; 
-            }
-            button { 
-                width: 100%; 
-                padding: 15px; 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                color: white; 
-                border: none; 
-                border-radius: 8px; 
-                font-size: 16px; 
-                font-weight: bold;
-                cursor: pointer;
-                transition: transform 0.2s;
-            }
-            button:hover { 
-                transform: translateY(-2px); 
-            }
-            .info { 
-                background: #e3f2fd; 
-                padding: 15px; 
-                border-radius: 8px; 
-                margin-bottom: 20px; 
-                text-align: center;
-                color: #1976d2;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🏛️ Consulta de Folio</h1>
-            <div class="info">
-                <strong>Sistema Digital de Permisos - Aguascalientes</strong>
-            </div>
-            <form onsubmit="consultarFolio(event)">
-                <div class="form-group">
-                    <label for="folio">Número de Folio:</label>
-                    <input type="text" id="folio" name="folio" placeholder="Ej: 1292" required>
-                </div>
-                <button type="submit">🔍 Consultar Estado</button>
-            </form>
-        </div>
-        
-        <script>
-        function consultarFolio(event) {
-            event.preventDefault();
-            const folio = document.getElementById('folio').value.trim();
-            if (folio) {
-                window.location.href = `/estado_folio/${folio}`;
-            }
-        }
-        </script>
-    </body>
-    </html>
-    """)
-
-@app.get("/stats")
-async def estadisticas():
-    try:
-        # Estadísticas básicas
-        total = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).execute()
-        pendientes = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "PENDIENTE").execute()
-        validados = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "VALIDADO_ADMIN").execute()
-        con_comprobante = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "COMPROBANTE_ENVIADO").execute()
-        
-        total_count = total.count or 0
-        pendientes_count = pendientes.count or 0
-        validados_count = validados.count or 0
-        comprobante_count = con_comprobante.count or 0
-        
-        timers_count = len(timers_activos)
-        
-        return HTMLResponse(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Estadísticas - Sistema Aguascalientes</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ 
-                    font-family: Arial, sans-serif; 
-                    margin: 0; 
-                    padding: 20px; 
-                    background: #f5f7fa;
-                }}
-                .container {{ 
-                    max-width: 800px; 
-                    margin: 0 auto; 
-                    background: white; 
-                    padding: 30px; 
-                    border-radius: 10px; 
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-                }}
-                h1 {{ 
-                    color: #2c3e50; 
-                    text-align: center; 
-                    margin-bottom: 30px;
-                }}
-                .stats-grid {{ 
-                    display: grid; 
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-                    gap: 20px; 
-                    margin-bottom: 30px;
-                }}
-                .stat-card {{ 
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    color: white; 
-                    padding: 20px; 
-                    border-radius: 10px; 
-                    text-align: center;
-                }}
-                .stat-number {{ 
-                    font-size: 2em; 
-                    font-weight: bold; 
-                    margin-bottom: 5px;
-                }}
-                .stat-label {{ 
-                    font-size: 0.9em; 
-                    opacity: 0.9;
-                }}
-                .info-section {{ 
-                    background: #f8f9fa; 
-                    padding: 20px; 
-                    border-radius: 8px; 
-                    margin-top: 20px;
-                }}
-                .refresh-btn {{ 
-                    background: #28a745; 
-                    color: white; 
-                    border: none; 
-                    padding: 10px 20px; 
-                    border-radius: 5px; 
-                    cursor: pointer; 
-                    float: right;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>📊 Estadísticas del Sistema</h1>
-                <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar</button>
-                <div style="clear: both;"></div>
-                
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number">{total_count}</div>
-                        <div class="stat-label">Total Folios</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{pendientes_count}</div>
-                        <div class="stat-label">Pendientes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{comprobante_count}</div>
-                        <div class="stat-label">Con Comprobante</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{validados_count}</div>
-                        <div class="stat-label">Validados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{timers_count}</div>
-                        <div class="stat-label">Timers Activos</div>
-                    </div>
-                </div>
-                
-                <div class="info-section">
-                    <h3>ℹ️ Información del Sistema</h3>
-                    <ul>
-                        <li><strong>Entidad:</strong> {ENTIDAD.upper()}</li>
-                        <li><strong>Costo por permiso:</strong> ${PRECIO_PERMISO} MXN</li>
-                        <li><strong>Tiempo límite:</strong> 12 horas</li>
-                        <li><strong>Zona horaria:</strong> {TZ}</li>
-                        <li><strong>Última actualización:</strong> {datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y %H:%M:%S")}</li>
-                    </ul>
-                </div>
-            </div>
-        </body>
-        </html>
-        """)
-        
-    except Exception as e:
-        return HTMLResponse(f"""
-        <html>
-        <body>
-            <h1>Error en Estadísticas</h1>
-            <p>Error: {str(e)}</p>
-        </body>
-        </html>
-        """, status_code=500)
-
-# ===================== CREAR TEMPLATE HTML =====================
-def crear_template_resultado():
-    template_content = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Resultado de Consulta - {{ folio }}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #ffffff;
-        }
-        
-        .container {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-        }
-        
-        .header {
-            width: 100%;
-            text-align: center;
-        }
-        
-        .header img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        
-        .content {
-            padding: 20px;
-            text-align: center;
-        }
-        
-        .resultado-box {
-            {% if vigente %}
-            background-color: #e8f5e8;
-            border: 2px solid #4caf50;
-            color: #2d5730;
-            {% else %}
-            background-color: #ffeaea;
-            border: 2px solid #f44336;
-            color: #8b2635;
-            {% endif %}
-            padding: 30px;
-            border-radius: 15px;
-            margin: 20px 0;
-            font-size: 16px;
-            line-height: 1.8;
-        }
-        
-        .dato {
-            margin: 12px 0;
-            font-weight: bold;
-            text-align: left;
-        }
-        
-        .boton-salir {
-            margin: 30px 0;
-        }
-        
-        .boton-salir a {
-            background-color: #2196F3;
-            color: white;
-            padding: 15px 30px;
-            text-decoration: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            display: inline-block;
-            transition: background-color 0.3s;
-        }
-        
-        .boton-salir a:hover {
-            background-color: #1976D2;
-        }
-        
-        .footer {
-            width: 100%;
-            text-align: center;
-            margin-top: 40px;
-        }
-        
-        .footer img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                width: 100%;
-                margin: 0;
-            }
-            
-            .content {
-                padding: 15px;
-            }
-            
-            .resultado-box {
-                padding: 20px;
-                font-size: 14px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Encabezado -->
-        <div class="header">
-            <img src="/static/encabezado.png" alt="Encabezado Aguascalientes">
-        </div>
-        
-        <!-- Contenido -->
-        <div class="content">
-            <div class="resultado-box">
-                <div class="dato">Folio: {{ folio }}</div>
-                <div class="dato">Marca: {{ marca }}</div>
-                <div class="dato">Línea: {{ linea }}</div>
-                <div class="dato">Año: {{ anio }}</div>
-                <div class="dato">Serie: {{ serie }}</div>
-                <div class="dato">Número de motor: {{ motor }}</div>
-                <div class="dato">Color: {{ color }}</div>
-                <div class="dato">Nombre: {{ nombre }}</div>
-                <div class="dato">Vigencia: {{ vigencia }}</div>
-                <div class="dato">Expedición: {{ expedicion }}</div>
-            </div>
-            
-            <div class="boton-salir">
-                <a href="https://epagos.aguascalientes.gob.mx/contribuciones/default.aspx?opcion=CapturaPlacaSIIF.aspx">Salir</a>
-            </div>
-        </div>
-        
-        <!-- Pie de página -->
-        <div class="footer">
-            <img src="/static/pie.png" alt="Pie Aguascalientes">
-        </div>
-    </div>
-</body>
-</html>"""
-    
-    template_path = os.path.join(TEMPLATES_DIR, "resultado_consulta.html")
-    with open(template_path, 'w', encoding='utf-8') as f:
-        f.write(template_content)
-    return template_path
-
 # Crear el template al inicializar
 crear_template_resultado()
-
-# ===================== HEALTH CHECK AVANZADO =====================
-@app.get("/health")
-async def health_check():
-    try:
-        # Verificar conexión a Supabase
-        test_query = supabase.table("folios_registrados").select("count", count="exact").limit(1).execute()
-        db_status = "✅ Conectado" if test_query else "❌ Error"
-        
-        # Verificar bot
-        bot_info = await bot.get_me()
-        bot_status = f"✅ @{bot_info.username}" if bot_info else "❌ Error"
-        
-        return {
-            "status": "healthy",
-            "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "services": {
-                "database": db_status,
-                "telegram_bot": bot_status,
-                "timers_activos": len(timers_activos),
-                "usuarios_con_folios": len(user_folios)
-            }
-        }
-    except Exception as e:
-        return {
-            "status": "error", 
-            "error": str(e),
-            "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()
-        }
-
-# ===================== ENDPOINT DE LIMPIEZA =====================
-@app.post("/admin/cleanup")
-async def cleanup_expired(admin_key: str = ""):
-    if admin_key != "AGS2024":  # Cambiar por una clave segura
-        return {"error": "Unauthorized"}
-    
-    try:
-        # Limpiar folios vencidos sin comprobante
-        cutoff = datetime.now(ZoneInfo(TZ)) - timedelta(hours=12)
-        expired = supabase.table("folios_registrados").select("folio").eq("entidad", ENTIDAD).eq("estado", "PENDIENTE").lt("created_at", cutoff.isoformat()).execute()
-        
-        deleted_count = 0
-        for record in (expired.data or []):
-            folio = record["folio"]
-            supabase.table("folios_registrados").delete().eq("folio", folio).execute()
-            cancelar_timer_folio(folio)
-            deleted_count += 1
-        
-        return {
-            "status": "success",
-            "deleted_folios": deleted_count,
-            "remaining_timers": len(timers_activos)
-        }
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

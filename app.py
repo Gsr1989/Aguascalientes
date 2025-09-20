@@ -618,7 +618,7 @@ async def telegram_webhook(request: Request):
         print(f"[WEBHOOK] Error: {e}")
         return {"ok": False, "error": str(e)}
 
- @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
+@app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str):
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())

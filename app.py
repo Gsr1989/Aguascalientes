@@ -488,6 +488,26 @@ def renderizar_consulta_folio(folio_data, base_url=""):
         template = Template(template_content)
         return template.render(**template_data)
 
+# Función actualizada para usar el nuevo template
+def renderizar_resultado_consulta(row, vigente=True):
+    template = jinja_env.get_template('resultado_consulta.html')
+    
+    datos = {
+        'folio': row.get('folio', ''),
+        'marca': row.get('marca', ''),
+        'linea': row.get('linea', ''),
+        'anio': row.get('anio', ''),
+        'serie': row.get('numero_serie', ''),
+        'motor': row.get('numero_motor', ''),
+        'color': row.get('color', ''),
+        'nombre': row.get('contribuyente', ''),
+        'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
+        'expedicion': row.get('fecha_expedicion', ''),
+        'vigente': vigente
+    }
+    
+    return template.render(**datos)
+
 # ===================== COORDENADAS Y FECHAS =====================
 coords_ags = {
     "folio": (520, 120, 14, (1, 0, 0)),

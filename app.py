@@ -618,7 +618,7 @@ async def telegram_webhook(request: Request):
         print(f"[WEBHOOK] Error: {e}")
         return {"ok": False, "error": str(e)}
 
-@app.get("/estado_folio/{folio}", response_class=HTMLResponse)
+ @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str):
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
@@ -1039,7 +1039,7 @@ def crear_template_resultado():
     <div class="container">
         <!-- Encabezado -->
         <div class="header">
-            <img src="encabezado.png" alt="Encabezado Aguascalientes">
+            <img src="/static/encabezado.png" alt="Encabezado Aguascalientes">
         </div>
         
         <!-- Contenido -->
@@ -1064,7 +1064,7 @@ def crear_template_resultado():
         
         <!-- Pie de página -->
         <div class="footer">
-            <img src="pie.png" alt="Pie Aguascalientes">
+            <img src="/static/pie.png" alt="Pie Aguascalientes">
         </div>
     </div>
 </body>

@@ -927,184 +927,144 @@ async def estadisticas():
 # ===================== CREAR TEMPLATE HTML =====================
 def crear_template_resultado():
     template_content = """<!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Consulta de Folio {{ folio }}</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultado de Consulta - {{ folio }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            background: {% if vigente %}linear-gradient(135deg, #4CAF50 0%, #45a049 100%){% else %}linear-gradient(135deg, #f44336 0%, #d32f2f 100%){% endif %};
-            min-height: 100vh;
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
         }
-        .container { 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 40px; 
-            border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
         }
-        .header { 
-            text-align: center; 
-            margin-bottom: 30px; 
+        
+        .header {
+            width: 100%;
+            text-align: center;
         }
-        .status { 
-            padding: 15px; 
-            border-radius: 10px; 
-            text-align: center; 
-            margin-bottom: 30px; 
-            font-weight: bold; 
-            font-size: 18px;
+        
+        .header img {
+            width: 100%;
+            height: auto;
+            display: block;
         }
-        .vigente { 
-            background: #e8f5e8; 
-            color: #2e7d32; 
+        
+        .content {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .resultado-box {
+            {% if vigente %}
+            background-color: #e8f5e8;
             border: 2px solid #4caf50;
-        }
-        .vencido { 
-            background: #ffebee; 
-            color: #c62828; 
+            color: #2d5730;
+            {% else %}
+            background-color: #ffeaea;
             border: 2px solid #f44336;
-        }
-        .datos { 
-            background: #f8f9fa; 
-            padding: 20px; 
-            border-radius: 10px; 
-            margin-bottom: 20px;
-        }
-        .dato-row { 
-            display: flex; 
-            justify-content: space-between; 
-            padding: 8px 0; 
-            border-bottom: 1px solid #eee;
-        }
-        .dato-row:last-child { 
-            border-bottom: none; 
-        }
-        .dato-label { 
-            font-weight: bold; 
-            color: #555; 
-        }
-        .dato-value { 
-            color: #333; 
-        }
-        .folio-destacado { 
-            font-size: 2em; 
-            font-weight: bold; 
-            color: #2c3e50; 
-            text-align: center; 
+            color: #8b2635;
+            {% endif %}
+            padding: 30px;
+            border-radius: 15px;
             margin: 20px 0;
+            font-size: 16px;
+            line-height: 1.8;
         }
-        .footer { 
-            text-align: center; 
-            color: #666; 
-            font-size: 0.9em; 
-            margin-top: 30px;
-        }
-        .btn-nueva { 
-            display: inline-block; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            color: white; 
-            padding: 12px 24px; 
-            text-decoration: none; 
-            border-radius: 8px; 
-            margin-top: 20px; 
+        
+        .dato {
+            margin: 12px 0;
             font-weight: bold;
+            text-align: left;
         }
-        .btn-nueva:hover { 
-            opacity: 0.9; 
+        
+        .boton-salir {
+            margin: 30px 0;
         }
+        
+        .boton-salir a {
+            background-color: #2196F3;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        
+        .boton-salir a:hover {
+            background-color: #1976D2;
+        }
+        
+        .footer {
+            width: 100%;
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        .footer img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
         @media (max-width: 600px) {
-            .container { 
-                margin: 10px; 
-                padding: 20px; 
+            .container {
+                width: 100%;
+                margin: 0;
             }
-            .dato-row { 
-                flex-direction: column; 
-                gap: 5px; 
+            
+            .content {
+                padding: 15px;
+            }
+            
+            .resultado-box {
+                padding: 20px;
+                font-size: 14px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Encabezado -->
         <div class="header">
-            <h1>🏛️ Sistema Digital de Permisos</h1>
-            <h2>Estado de Aguascalientes</h2>
+            <img src="encabezado.png" alt="Encabezado Aguascalientes">
         </div>
         
-        <div class="folio-destacado">
-            Folio: {{ folio }}
-        </div>
-        
-        <div class="status {% if vigente %}vigente{% else %}vencido{% endif %}">
-            {% if vigente %}
-                ✅ PERMISO VIGENTE
-            {% else %}
-                ❌ PERMISO VENCIDO
-            {% endif %}
-        </div>
-        
-        <div class="datos">
-            <h3 style="margin-top: 0; color: #2c3e50;">📋 Datos del Vehículo</h3>
-            
-            <div class="dato-row">
-                <span class="dato-label">🚗 Marca:</span>
-                <span class="dato-value">{{ marca }}</span>
+        <!-- Contenido -->
+        <div class="content">
+            <div class="resultado-box">
+                <div class="dato">Folio: {{ folio }}</div>
+                <div class="dato">Marca: {{ marca }}</div>
+                <div class="dato">Línea: {{ linea }}</div>
+                <div class="dato">Año: {{ anio }}</div>
+                <div class="dato">Serie: {{ serie }}</div>
+                <div class="dato">Número de motor: {{ motor }}</div>
+                <div class="dato">Color: {{ color }}</div>
+                <div class="dato">Nombre: {{ nombre }}</div>
+                <div class="dato">Vigencia: {{ vigencia }}</div>
+                <div class="dato">Expedición: {{ expedicion }}</div>
             </div>
             
-            <div class="dato-row">
-                <span class="dato-label">🏷️ Línea/Modelo:</span>
-                <span class="dato-value">{{ linea }}</span>
-            </div>
-            
-            <div class="dato-row">
-                <span class="dato-label">📅 Año:</span>
-                <span class="dato-value">{{ anio }}</span>
-            </div>
-            
-            <div class="dato-row">
-                <span class="dato-label">🎨 Color:</span>
-                <span class="dato-value">{{ color }}</span>
-            </div>
-            
-            <div class="dato-row">
-                <span class="dato-label">🔢 No. Serie:</span>
-                <span class="dato-value">{{ serie }}</span>
-            </div>
-            
-            <div class="dato-row">
-                <span class="dato-label">⚙️ No. Motor:</span>
-                <span class="dato-value">{{ motor }}</span>
-            </div>
-            
-            <div class="dato-row">
-                <span class="dato-label">👤 Titular:</span>
-                <span class="dato-value">{{ nombre }}</span>
-            </div>
-            
-            <div class="dato-row">
-                <span class="dato-label">📅 Expedición:</span>
-                <span class="dato-value">{{ expedicion }}</span>
-            </div>
-            
-            <div class="dato-row">
-                <span class="dato-label">⏰ Estado:</span>
-                <span class="dato-value">{{ vigencia }}</span>
+            <div class="boton-salir">
+                <a href="https://epagos.aguascalientes.gob.mx/contribuciones/default.aspx?opcion=CapturaPlacaSIIF.aspx">Salir</a>
             </div>
         </div>
         
-        <div style="text-align: center;">
-            <a href="/consulta" class="btn-nueva">🔍 Nueva Consulta</a>
-        </div>
-        
+        <!-- Pie de página -->
         <div class="footer">
-            <p>Sistema Digital de Permisos - Gobierno del Estado de Aguascalientes</p>
-            <p><small>Consulta realizada el {{ "now"|date("%d/%m/%Y %H:%M:%S") }}</small></p>
+            <img src="pie.png" alt="Pie Aguascalientes">
         </div>
     </div>
 </body>

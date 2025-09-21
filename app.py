@@ -200,6 +200,7 @@ def generar_qr_simple_ags(folio):
         return None
 
 def renderizar_resultado_consulta(row, vigente=True):
+    """Renderiza el template HTML con los datos del folio"""
     try:
         template = jinja_env.get_template('resultado_consulta.html')
         
@@ -212,7 +213,7 @@ def renderizar_resultado_consulta(row, vigente=True):
             except:
                 pass
         
-        # AGREGAR: Formatear fecha de vencimiento
+        # Formatear fecha de vencimiento
         fecha_ven = row.get('fecha_vencimiento', '')
         if fecha_ven:
             try:
@@ -232,12 +233,16 @@ def renderizar_resultado_consulta(row, vigente=True):
             'nombre': row.get('contribuyente', ''),
             'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
             'expedicion': fecha_exp,
-            'vencimiento': fecha_ven,  # AGREGAR ESTA LÍNEA
+            'vencimiento': fecha_ven,  # AGREGADA FECHA DE VENCIMIENTO
             'vigente': vigente
         }
         
         return template.render(**datos)
         
+    except Exception as e:
+        print(f"[TEMPLATE] Error renderizando: {e}")
+        return f"<html><body><h1>Error al renderizar template: {e}</h1></body></html>"
+
 def generar_pdf_ags(datos: dict) -> str:
     """Genera el PDF del permiso con QR"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -505,7 +510,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
             f"💵 Monto: ${PRECIO_PERMISO} MXN\n"
             f"⏰ Tiempo límite: 12 horas\n\n"
             "📸 Envía la foto de tu comprobante aquí mismo.\n"
-            "🔑 ADMIN: Para validar manual, enviar SERO{datos['folio']} (ej. SERO1292)."
+            f"🔑 ADMIN: Para validar manual, enviar SERO{datos['folio']} (ej. SERO1292)."
         )
 
     except Exception as e:

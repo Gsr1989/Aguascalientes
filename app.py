@@ -1101,6 +1101,218 @@ async def cleanup_expired(admin_key: str = ""):
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
+# AGREGA ESTOS IMPORTS al inicio de tu archivo app.py
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, FileResponse
+import os
+import mimetypes
+
+# Después de crear la app FastAPI, AGREGA ESTOS ENDPOINTS EXACTOS:
+
+@app.get("/encabezado.jpg", response_class=FileResponse)
+async def serve_encabezado():
+    """Sirve la imagen encabezado.jpg desde la raíz del proyecto"""
+    file_path = "encabezado.jpg"
+    
+    # Verificar que el archivo existe
+    if not os.path.exists(file_path):
+        print(f"[ERROR] Archivo no encontrado: {file_path}")
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+    
+    # Determinar el tipo MIME correcto
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type is None:
+        mime_type = "image/jpeg"
+    
+    print(f"[INFO] Sirviendo {file_path} con tipo MIME: {mime_type}")
+    
+    return FileResponse(
+        path=file_path,
+        media_type=mime_type,
+        filename="encabezado.jpg",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Content-Disposition": "inline; filename=encabezado.jpg"
+        }
+    )
+
+@app.get("/pie.jpg", response_class=FileResponse)
+async def serve_pie():
+    """Sirve la imagen pie.jpg desde la raíz del proyecto"""
+    file_path = "pie.jpg"
+    
+    # Verificar que el archivo existe
+    if not os.path.exists(file_path):
+        print(f"[ERROR] Archivo no encontrado: {file_path}")
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+    
+    # Determinar el tipo MIME correcto
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type is None:
+        mime_type = "image/jpeg"
+    
+    print(f"[INFO] Sirviendo {file_path} con tipo MIME: {mime_type}")
+    
+    return FileResponse(
+        path=file_path,
+        media_type=mime_type,
+        filename="pie.jpg",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Content-Disposition": "inline; filename=pie.jpg"
+        }
+    )
+
+# ENDPOINT DE DEBUG para verificar que todo funciona
+@app.get("/debug-images")
+async def debug_images():
+    """Endpoint para debuggear las imágenes"""
+    
+    # Verificar archivos
+    encabezado_exists = os.path.exists("encabezado.jpg")
+    pie_exists = os.path.exists("pie.jpg")
+    
+    # Obtener información de los archivos
+    encabezado_info = {}
+    pie_info = {}
+    
+    if encabezado_exists:
+        stat = os.stat("encabezado.jpg")
+        encabezado_info = {
+            "tamaño": stat.st_size,
+            "ruta_absoluta": os.path.abspath("encabezado.jpg"),
+            "es_legible": os.access("encabezado.jpg", os.R_OK)
+        }
+    
+    if pie_exists:
+        stat = os.stat("pie.jpg")
+        pie_info = {
+            "tamaño": stat.st_size,
+            "ruta_absoluta": os.path.abspath("pie.jpg"),
+            "es_legible": os.access("pie.jpg", os.R_OK)
+        }
+    
+    return {
+        "directorio_trabajo": os.getcwd(),
+        "encabezado": {
+            "existe": encabezado_exists,
+            "info": encabezado_info
+        },
+        "pie": {
+            "existe": pie_exists,
+            "info": pie_info
+        },
+        "todos_los_archivos": os.listdir('.'),
+        "archivos_imagen": [f for f in os.listdir('.') if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
+    }
+
+# ENDPOINT DE PRUEBA VISUAL
+@app.get("/test-imagenes-visual")
+async def test_imagenes_visual():
+    """Test visual para ver si las imágenes cargan"""
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test Visual de Imágenes</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                background: #f5f5f5; 
+            }
+            .container { 
+                max-width: 800px; 
+                margin: 0 auto; 
+                background: white; 
+                padding: 30px; 
+                border-radius: 10px; 
+            }
+            .test-image { 
+                border: 2px solid #ddd; 
+                margin: 20px 0; 
+                padding: 10px; 
+                border-radius: 5px; 
+            }
+            .test-image img { 
+                max-width: 100%; 
+                height: auto; 
+            }
+            .status { 
+                padding: 10px; 
+                margin: 10px 0; 
+                border-radius: 5px; 
+                font-weight: bold; 
+            }
+            .success { background: #d4edda; color: #155724; }
+            .error { background: #f8d7da; color: #721c24; }
+            .loading { background: #d1ecf1; color: #0c5460; }
+        </style>
+        <script>
+            function imageLoaded(imgElement, statusId) {
+                document.getElementById(statusId).className = 'status success';
+                document.getElementById(statusId).innerHTML = '✅ Imagen cargada correctamente';
+            }
+            
+            function imageError(imgElement, statusId) {
+                document.getElementById(statusId).className = 'status error';
+                document.getElementById(statusId).innerHTML = '❌ Error: No se pudo cargar la imagen';
+            }
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🧪 Test Visual de Imágenes</h1>
+            
+            <div class="test-image">
+                <h3>Encabezado (encabezado.jpg):</h3>
+                <div id="status-enc" class="status loading">⏳ Cargando encabezado...</div>
+                <img src="/encabezado.jpg" 
+                     alt="Test Encabezado"
+                     onload="imageLoaded(this, 'status-enc')"
+                     onerror="imageError(this, 'status-enc')">
+            </div>
+            
+            <div class="test-image">
+                <h3>Pie (pie.jpg):</h3>
+                <div id="status-pie" class="status loading">⏳ Cargando pie...</div>
+                <img src="/pie.jpg" 
+                     alt="Test Pie"
+                     onload="imageLoaded(this, 'status-pie')"
+                     onerror="imageError(this, 'status-pie')">
+            </div>
+            
+            <h3>Enlaces de debug:</h3>
+            <ul>
+                <li><a href="/debug-images" target="_blank">Ver información técnica de las imágenes</a></li>
+                <li><a href="/encabezado.jpg" target="_blank">Abrir encabezado.jpg directamente</a></li>
+                <li><a href="/pie.jpg" target="_blank">Abrir pie.jpg directamente</a></li>
+            </ul>
+            
+            <h3>Simulación del template:</h3>
+            <div style="border: 2px solid #4caf50; background: #e8f5e8; padding: 20px; border-radius: 15px; margin: 20px 0;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="/encabezado.jpg" alt="Encabezado" style="width: 100%; max-width: 300px;">
+                </div>
+                
+                <div style="color: #2d5730; font-weight: bold;">
+                    <div>Marca: HYUNDAI</div>
+                    <div>Línea: GRAND I10</div>
+                    <div>Año: 2016</div>
+                    <div>Vigencia: VIGENTE</div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <img src="/pie.jpg" alt="Pie" style="width: 100%; max-width: 300px;">
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """)
+
 # ===================== EJECUTAR SERVIDOR =====================
 if __name__ == "__main__":
     import uvicorn

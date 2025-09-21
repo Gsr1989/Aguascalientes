@@ -256,15 +256,15 @@ def generar_pdf_ags(datos: dict) -> str:
 
             # Coordenadas para texto en plantilla
             coords_ags = {
-                "folio": (520, 120, 14, (1, 0, 0)),
-                "marca": (120, 200, 12, (0, 0, 0)),
-                "modelo": (120, 220, 12, (0, 0, 0)),
-                "color": (120, 240, 12, (0, 0, 0)),
-                "serie": (120, 260, 12, (0, 0, 0)),
-                "motor": (120, 280, 12, (0, 0, 0)),
-                "nombre": (120, 300, 12, (0, 0, 0)),
-                "fecha_exp_larga": (120, 320, 12, (0, 0, 0)),
-                "fecha_ven_larga": (120, 340, 12, (0, 0, 0)),
+                "folio": (690, 97, 26, (1, 0, 0)),
+                "marca": (190, 308, 20, (0, 0, 0)),
+                "modelo": (190, 320, 20, (0, 0, 0)),
+                "color": (190, 350, 20, (0, 0, 0)),
+                "serie": (190, 380, 20, (0, 0, 0)),
+                "motor": (190, 410, 20, (0, 0, 0)),
+                "nombre": (400, 410, 20, (0, 0, 0)),
+                "fecha_exp_larga": (250, 450, 20, (0, 0, 0)),
+                "fecha_ven_larga": (450, 450, 20, (0, 0, 0)),
             }
 
             def put(key, value):
@@ -297,7 +297,7 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x, qr_y = 595, 148
+                    qr_x, qr_y = 670, 140
                     qr_width = qr_height = 115
                     
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)

@@ -200,7 +200,6 @@ def generar_qr_simple_ags(folio):
         return None
 
 def renderizar_resultado_consulta(row, vigente=True):
-    """Renderiza el template HTML con los datos del folio"""
     try:
         template = jinja_env.get_template('resultado_consulta.html')
         
@@ -210,6 +209,15 @@ def renderizar_resultado_consulta(row, vigente=True):
             try:
                 fecha_exp_dt = datetime.fromisoformat(fecha_exp)
                 fecha_exp = fecha_exp_dt.strftime("%d/%m/%Y")
+            except:
+                pass
+        
+        # AGREGAR: Formatear fecha de vencimiento
+        fecha_ven = row.get('fecha_vencimiento', '')
+        if fecha_ven:
+            try:
+                fecha_ven_dt = datetime.fromisoformat(fecha_ven)
+                fecha_ven = fecha_ven_dt.strftime("%d/%m/%Y")
             except:
                 pass
         
@@ -224,15 +232,12 @@ def renderizar_resultado_consulta(row, vigente=True):
             'nombre': row.get('contribuyente', ''),
             'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
             'expedicion': fecha_exp,
+            'vencimiento': fecha_ven,  # AGREGAR ESTA LÍNEA
             'vigente': vigente
         }
         
         return template.render(**datos)
         
-    except Exception as e:
-        print(f"[TEMPLATE] Error renderizando: {e}")
-        return f"<html><body><h1>Error al renderizar template: {e}</h1></body></html>"
-
 def generar_pdf_ags(datos: dict) -> str:
     """Genera el PDF del permiso con QR"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)

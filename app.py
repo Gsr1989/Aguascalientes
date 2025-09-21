@@ -1,9 +1,9 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
-import fitz
 import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -18,9 +18,10 @@ from PIL import Image
 import qrcode
 from io import BytesIO
 import html
-from jinja2 import Environment, FileSystemLoader, Template
+from jinja2 import Environment, FileSystemLoader
+import fitz
 
-# ===================== CONFIG AGUASCALIENTES =====================
+# ===================== CONFIGURACIÓN =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -31,106 +32,175 @@ ENTIDAD = "ags"
 PRECIO_PERMISO = 180
 TZ = os.getenv("TZ", "America/Mexico_City")
 
-# Configuración de templates
+# Directorios
 TEMPLATES_DIR = "templates"
+STATIC_DIR = "static"
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
 
-# Configurar Jinja2
+# Jinja2 y Supabase
 jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-
-# ===================== SUPABASE =====================
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ===================== BOT =====================
+# Bot Telegram
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-# ===================== TIMERS (12 HORAS) =====================
-timers_activos = {}
-user_folios = {}
+# ===================== SISTEMA DE TIMERS =====================
+timers_activos = {}  # {folio: {"task": task, "user_id": user_id, "start_time": datetime}}
+user_folios = {}     # {user_id: [folio1, folio2, ...]}
+
+async def eliminar_folio_automatico(folio: str):
+    """Elimina el folio de Supabase y limpia los timers después de 12 horas"""
+    try:
+        print(f"[TIMER] Eliminando folio {folio} por tiempo agotado (12h)")
+        
+        # Obtener user_id antes de eliminar
+        user_id = timers_activos.get(folio, {}).get("user_id")
+        
+        # Eliminar de Supabase
+        supabase.table("folios_registrados").delete().eq("folio", folio).execute()
+        supabase.table("borradores_registros").delete().eq("folio", folio).execute()
+        
+        # Notificar al usuario si es posible
+        if user_id:
+            with suppress(Exception):
+                await bot.send_message(
+                    user_id,
+                    f"⏰ TIEMPO AGOTADO\n\nEl folio {folio} fue eliminado automáticamente después de 12 horas sin validación.",
+                    parse_mode="HTML"
+                )
+        
+        print(f"[TIMER] Folio {folio} eliminado exitosamente")
+        
+    except Exception as e:
+        print(f"[TIMER] Error eliminando folio {folio}: {e}")
+    finally:
+        limpiar_timer_folio(folio)
+
+async def iniciar_timer_12h(user_id: int, folio: str):
+    """Inicia un timer de 12 horas para un folio específico"""
+    async def timer_task():
+        try:
+            print(f"[TIMER] Timer iniciado para folio {folio} - 12 horas")
+            await asyncio.sleep(12 * 60 * 60)  # 12 horas = 43200 segundos
+            
+            # Verificar si el timer aún está activo (no fue cancelado)
+            if folio in timers_activos:
+                await eliminar_folio_automatico(folio)
+                
+        except asyncio.CancelledError:
+            print(f"[TIMER] Timer cancelado para folio {folio}")
+            pass
+
+    # Crear y guardar el task
+    task = asyncio.create_task(timer_task())
+    timers_activos[folio] = {
+        "task": task, 
+        "user_id": user_id, 
+        "start_time": datetime.now()
+    }
+    
+    # Agregar folio a la lista del usuario
+    user_folios.setdefault(user_id, []).append(folio)
+    
+    print(f"[TIMER] Timer 12h iniciado para folio {folio} (usuario {user_id})")
+
+def cancelar_timer_folio(folio: str):
+    """Cancela el timer de un folio específico (por comando SERO)"""
+    if folio in timers_activos:
+        try:
+            # Cancelar el task
+            timers_activos[folio]["task"].cancel()
+            user_id = timers_activos[folio]["user_id"]
+            
+            # Limpiar estructuras de datos
+            del timers_activos[folio]
+            
+            if user_id in user_folios and folio in user_folios[user_id]:
+                user_folios[user_id].remove(folio)
+                if not user_folios[user_id]:
+                    del user_folios[user_id]
+            
+            print(f"[TIMER] Timer cancelado para folio {folio}")
+            return True
+            
+        except Exception as e:
+            print(f"[TIMER] Error cancelando timer para {folio}: {e}")
+            return False
+    return False
+
+def limpiar_timer_folio(folio: str):
+    """Limpia las estructuras de datos del timer (sin cancelar)"""
+    if folio in timers_activos:
+        user_id = timers_activos[folio]["user_id"]
+        del timers_activos[folio]
+        
+        if user_id in user_folios and folio in user_folios[user_id]:
+            user_folios[user_id].remove(folio)
+            if not user_folios[user_id]:
+                del user_folios[user_id]
+
+def obtener_folios_usuario(user_id: int):
+    """Obtiene la lista de folios activos de un usuario"""
+    return user_folios.get(user_id, [])
 
 # ===================== FUNCIONES AUXILIARES =====================
-def sanitizar_texto(texto: str) -> str:
-    return html.escape(str(texto))
-
 def limpiar_entrada(texto: str) -> str:
     if not texto:
         return ""
     texto_limpio = ''.join(c for c in texto if c.isalnum() or c.isspace() or c in '-_./')
     return texto_limpio.strip().upper()
 
-async def enviar_mensaje_seguro(chat_id: int, texto: str, **kwargs):
+def generar_folio_ags():
+    """Genera un nuevo folio único"""
+    prefijo = "129"
     try:
-        return await bot.send_message(chat_id, texto, **kwargs)
-    except Exception as e:
-        print(f"[BOT] Error enviando mensaje formateado: {e}")
-        try:
-            texto_plano = texto.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', '').replace('<code>', '').replace('</code>', '')
-            return await bot.send_message(chat_id, texto_plano)
-        except Exception as e2:
-            print(f"[BOT] Error enviando texto plano: {e2}")
-            raise e2
+        resp = supabase.table("folios_registrados") \
+            .select("folio") \
+            .eq("entidad", ENTIDAD) \
+            .like("folio", f"{prefijo}%") \
+            .execute()
+        existentes = {r["folio"] for r in (resp.data or []) if r.get("folio")}
 
-async def eliminar_folio_automatico(folio: str):
+        usados = []
+        for f in existentes:
+            if f.startswith(prefijo) and len(f) > len(prefijo):
+                suf = f[len(prefijo):]
+                try:
+                    usados.append(int(suf))
+                except ValueError:
+                    pass
+
+        siguiente = (max(usados) + 1) if usados else 2
+        while f"{prefijo}{siguiente}" in existentes:
+            siguiente += 1
+        return f"{prefijo}{siguiente}"
+    except Exception as e:
+        print(f"[FOLIO] Error: {e}")
+        return f"{prefijo}{random.randint(10000,99999)}"
+
+def generar_qr_simple_ags(folio):
+    """Genera QR que apunta al endpoint de consulta"""
     try:
-        user_id = timers_activos.get(folio, {}).get("user_id")
-        supabase.table("folios_registrados").delete().eq("folio", folio).execute()
-        supabase.table("borradores_registros").delete().eq("folio", folio).execute()
-        if user_id:
-            with suppress(Exception):
-                await enviar_mensaje_seguro(
-                    user_id,
-                    f"⏰ TIEMPO AGOTADO\n\nEl folio {folio} fue eliminado por no recibir comprobante ni validación admin en 12 horas.",
-                    parse_mode="HTML"
-                )
+        url_estado = f"{BASE_URL}/estado_folio/{folio}"
+        qr = qrcode.QRCode(
+            version=None, 
+            error_correction=qrcode.constants.ERROR_CORRECT_M, 
+            box_size=4, 
+            border=1
+        )
+        qr.add_data(url_estado)
+        qr.make(fit=True)
+        return qr.make_image(fill_color="black", back_color="white").convert("RGB")
     except Exception as e:
-        print(f"[TIMER] Error al eliminar folio {folio}: {e}")
-    finally:
-        limpiar_timer_folio(folio)
+        print(f"[QR] Error: {e}")
+        return None
 
-async def iniciar_timer_12h(user_id: int, folio: str):
-    async def timer_task():
-        try:
-            await asyncio.sleep(12 * 60 * 60)  # 12 horas
-            if folio in timers_activos:
-                await eliminar_folio_automatico(folio)
-        except asyncio.CancelledError:
-            pass
-
-    task = asyncio.create_task(timer_task())
-    timers_activos[folio] = {"task": task, "user_id": user_id, "start_time": datetime.now()}
-    user_folios.setdefault(user_id, []).append(folio)
-    print(f"[TIMER] Iniciado 12h para {folio} (user {user_id}).")
-
-def cancelar_timer_folio(folio: str):
-    if folio in timers_activos:
-        with suppress(Exception):
-            timers_activos[folio]["task"].cancel()
-        user_id = timers_activos[folio]["user_id"]
-        del timers_activos[folio]
-        if user_id in user_folios and folio in user_folios[user_id]:
-            user_folios[user_id].remove(folio)
-            if not user_folios[user_id]:
-                del user_folios[user_id]
-        print(f"[TIMER] Cancelado para {folio}.")
-
-def limpiar_timer_folio(folio: str):
-    if folio in timers_activos:
-        user_id = timers_activos[folio]["user_id"]
-        del timers_activos[folio]
-        if user_id in user_folios and folio in user_folios[user_id]:
-            user_folios[user_id].remove(folio)
-            if not user_folios[user_id]:
-                del user_folios[user_id]
-        print(f"[TIMER] Limpiado para {folio}.")
-
-def obtener_folios_usuario(user_id: int):
-    return user_folios.get(user_id, [])
-
-# ===================== FUNCIONES DE TEMPLATES =====================
 def renderizar_resultado_consulta(row, vigente=True):
+    """Renderiza el template HTML con los datos del folio"""
     try:
         template = jinja_env.get_template('resultado_consulta.html')
         
@@ -160,74 +230,32 @@ def renderizar_resultado_consulta(row, vigente=True):
         return template.render(**datos)
         
     except Exception as e:
-        print(f"Error renderizando template: {e}")
+        print(f"[TEMPLATE] Error renderizando: {e}")
         return f"<html><body><h1>Error al renderizar template: {e}</h1></body></html>"
 
-# ===================== COORDENADAS Y FECHAS =====================
-coords_ags = {
-    "folio": (520, 120, 14, (1, 0, 0)),
-    "marca": (120, 200, 12, (0, 0, 0)),
-    "modelo": (120, 220, 12, (0, 0, 0)),
-    "color": (120, 240, 12, (0, 0, 0)),
-    "serie": (120, 260, 12, (0, 0, 0)),
-    "motor": (120, 280, 12, (0, 0, 0)),
-    "nombre": (120, 300, 12, (0, 0, 0)),
-    "fecha_exp_larga": (120, 320, 12, (0, 0, 0)),
-    "fecha_ven_larga": (120, 340, 12, (0, 0, 0)),
-}
-
-ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
-
-def fecha_larga(dt: datetime) -> str:
-    return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
-
-def generar_folio_ags():
-    prefijo = "129"
-    try:
-        resp = supabase.table("folios_registrados") \
-            .select("folio") \
-            .eq("entidad", ENTIDAD) \
-            .like("folio", f"{prefijo}%") \
-            .execute()
-        existentes = {r["folio"] for r in (resp.data or []) if r.get("folio")}
-
-        usados = []
-        for f in existentes:
-            if f.startswith(prefijo) and len(f) > len(prefijo):
-                suf = f[len(prefijo):]
-                try:
-                    usados.append(int(suf))
-                except ValueError:
-                    pass
-
-        siguiente = (max(usados) + 1) if usados else 2
-        while f"{prefijo}{siguiente}" in existentes:
-            siguiente += 1
-        return f"{prefijo}{siguiente}"
-    except Exception as e:
-        print(f"[FOLIO] Error: {e}")
-        return f"{prefijo}{random.randint(10000,99999)}"
-
-def generar_qr_simple_ags(folio):
-    try:
-        url_estado = f"{BASE_URL}/estado_folio/{folio}"
-        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=1)
-        qr.add_data(url_estado)
-        qr.make(fit=True)
-        return qr.make_image(fill_color="black", back_color="white").convert("RGB")
-    except Exception as e:
-        print(f"[QR] Error: {e}")
-        return None
-
 def generar_pdf_ags(datos: dict) -> str:
+    """Genera el PDF del permiso con QR"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
     
     try:
         if os.path.exists(PLANTILLA_PDF):
-            print(f"[PDF] Usando plantilla: {PLANTILLA_PDF}")
+            # Usar plantilla existente
             doc = fitz.open(PLANTILLA_PDF)
             pg = doc[0]
+
+            # Coordenadas para texto en plantilla
+            coords_ags = {
+                "folio": (520, 120, 14, (1, 0, 0)),
+                "marca": (120, 200, 12, (0, 0, 0)),
+                "modelo": (120, 220, 12, (0, 0, 0)),
+                "color": (120, 240, 12, (0, 0, 0)),
+                "serie": (120, 260, 12, (0, 0, 0)),
+                "motor": (120, 280, 12, (0, 0, 0)),
+                "nombre": (120, 300, 12, (0, 0, 0)),
+                "fecha_exp_larga": (120, 320, 12, (0, 0, 0)),
+                "fecha_ven_larga": (120, 340, 12, (0, 0, 0)),
+            }
 
             def put(key, value):
                 if key not in coords_ags:
@@ -242,10 +270,15 @@ def generar_pdf_ags(datos: dict) -> str:
             put("serie", datos["serie"])
             put("motor", datos["motor"])
             put("nombre", datos["nombre"])
+            
+            ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
+            def fecha_larga(dt: datetime) -> str:
+                return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
+            
             put("fecha_exp_larga", f"Exp: {fecha_larga(datos['fecha_exp_dt'])}")
             put("fecha_ven_larga", f"Ven: {fecha_larga(datos['fecha_ven_dt'])}")
 
-            # QR simplificado
+            # Agregar QR
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
@@ -254,18 +287,16 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x = 595
-                    qr_y = 148
-                    qr_width = 115
-                    qr_height = 115
+                    qr_x, qr_y = 595, 148
+                    qr_width = qr_height = 115
                     
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
                     pg.insert_image(rect, pixmap=qr_pix, overlay=True)
             except Exception as e:
-                print(f"[PDF] Error QR: {e}")
+                print(f"[PDF] Error agregando QR: {e}")
 
         else:
-            print(f"[PDF] Creando desde cero")
+            # Crear PDF básico
             doc = fitz.open()
             page = doc.new_page(width=595, height=842)
             
@@ -274,32 +305,23 @@ def generar_pdf_ags(datos: dict) -> str:
             y_pos = 120
             line_height = 25
             
-            marca_modelo = f"{datos['marca']} {datos['linea']}"
-            page.insert_text((50, y_pos), marca_modelo, fontsize=12, color=(0, 0, 0))
-            y_pos += line_height
+            texts = [
+                f"{datos['marca']} {datos['linea']}",
+                datos["anio"],
+                datos["color"],
+                datos["serie"],
+                datos["motor"] if datos["motor"].upper() != "SIN NUMERO" else "",
+                datos["nombre"],
+                f"Expedición: {datos['fecha_exp']}",
+                f"Vencimiento: {datos['fecha_ven']}"
+            ]
             
-            page.insert_text((50, y_pos), datos["anio"], fontsize=12, color=(0, 0, 0))
-            y_pos += line_height
+            for text in texts:
+                if text:
+                    page.insert_text((50, y_pos), text, fontsize=12, color=(0, 0, 0))
+                    y_pos += line_height
             
-            page.insert_text((50, y_pos), datos["color"], fontsize=12, color=(0, 0, 0))
-            y_pos += line_height
-            
-            page.insert_text((50, y_pos), datos["serie"], fontsize=12, color=(0, 0, 0))
-            y_pos += line_height
-            
-            if datos["motor"] and datos["motor"].upper() != "SIN NUMERO":
-                page.insert_text((50, y_pos), datos["motor"], fontsize=12, color=(0, 0, 0))
-                y_pos += line_height
-            
-            page.insert_text((50, y_pos), datos["nombre"], fontsize=12, color=(0, 0, 0))
-            y_pos += line_height
-            
-            fecha_expedicion = datos["fecha_exp"].replace("/", " / ")
-            fecha_vencimiento = datos["fecha_ven"].replace("/", " / ")
-            page.insert_text((50, y_pos), f"Expedición: {fecha_expedicion}", fontsize=12, color=(0, 0, 0))
-            y_pos += line_height
-            page.insert_text((50, y_pos), f"Vencimiento: {fecha_vencimiento}", fontsize=12, color=(0, 0, 0))
-            
+            # QR en PDF básico
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
@@ -308,15 +330,10 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x = 400
-                    qr_y = 100
-                    qr_width = 115
-                    qr_height = 115
-                    
-                    rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
+                    rect = fitz.Rect(400, 100, 515, 215)
                     page.insert_image(rect, pixmap=qr_pix, overlay=True)
             except Exception as e:
-                print(f"[PDF] Error QR: {e}")
+                print(f"[PDF] Error QR en PDF básico: {e}")
 
         doc.save(out)
         doc.close()
@@ -326,7 +343,7 @@ def generar_pdf_ags(datos: dict) -> str:
         print(f"[PDF] Error crítico: {e}")
         raise e
 
-# ===================== FSM =====================
+# ===================== ESTADOS DEL BOT =====================
 class PermisoForm(StatesGroup):
     marca = State()
     linea = State()
@@ -336,12 +353,11 @@ class PermisoForm(StatesGroup):
     color = State()
     nombre = State()
 
-# ===================== HANDLERS =====================
+# ===================== HANDLERS DEL BOT =====================
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message, state: FSMContext):
     await state.clear()
-    await enviar_mensaje_seguro(
-        message.chat.id,
+    await message.answer(
         "🏛️ Sistema Digital de Permisos Aguascalientes\n\n"
         f"💰 Costo: ${PRECIO_PERMISO} MXN\n"
         "⏰ Tiempo límite: 12 horas\n"
@@ -353,78 +369,73 @@ async def start_cmd(message: types.Message, state: FSMContext):
 async def permiso_cmd(message: types.Message, state: FSMContext):
     activos = obtener_folios_usuario(message.from_user.id)
     if activos:
-        await enviar_mensaje_seguro(
-            message.chat.id,
+        await message.answer(
             f"📋 Folios activos: {', '.join(activos)}\n\n"
             "Paso 1/7: Ingresa la MARCA del vehículo:",
             parse_mode="HTML"
         )
     else:
-        await enviar_mensaje_seguro(
-            message.chat.id,
-            "Paso 1/7: Ingresa la MARCA del vehículo:",
-            parse_mode="HTML"
-        )
+        await message.answer("Paso 1/7: Ingresa la MARCA del vehículo:")
     await state.set_state(PermisoForm.marca)
 
 @dp.message(PermisoForm.marca)
 async def get_marca(message: types.Message, state: FSMContext):
     marca = limpiar_entrada(message.text)
     if not marca:
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa una marca válida:")
+        await message.answer("⚠️ Por favor ingresa una marca válida:")
         return
     await state.update_data(marca=marca)
-    await enviar_mensaje_seguro(message.chat.id, "Paso 2/7: Ingresa la LÍNEA/MODELO:")
+    await message.answer("Paso 2/7: Ingresa la LÍNEA/MODELO:")
     await state.set_state(PermisoForm.linea)
 
 @dp.message(PermisoForm.linea)
 async def get_linea(message: types.Message, state: FSMContext):
     linea = limpiar_entrada(message.text)
     if not linea:
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa una línea/modelo válido:")
+        await message.answer("⚠️ Por favor ingresa una línea/modelo válido:")
         return
     await state.update_data(linea=linea)
-    await enviar_mensaje_seguro(message.chat.id, "Paso 3/7: Ingresa el AÑO (4 dígitos):")
+    await message.answer("Paso 3/7: Ingresa el AÑO (4 dígitos):")
     await state.set_state(PermisoForm.anio)
 
 @dp.message(PermisoForm.anio)
 async def get_anio(message: types.Message, state: FSMContext):
     anio = message.text.strip()
     if not anio.isdigit() or len(anio) != 4:
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ El año debe tener 4 dígitos. Intenta de nuevo:")
+        await message.answer("⚠️ El año debe tener 4 dígitos. Intenta de nuevo:")
         return
     await state.update_data(anio=anio)
-    await enviar_mensaje_seguro(message.chat.id, "Paso 4/7: Ingresa el NÚMERO DE SERIE:")
+    await message.answer("Paso 4/7: Ingresa el NÚMERO DE SERIE:")
     await state.set_state(PermisoForm.serie)
 
 @dp.message(PermisoForm.serie)
 async def get_serie(message: types.Message, state: FSMContext):
     serie = limpiar_entrada(message.text)
     if not serie:
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un número de serie válido:")
+        await message.answer("⚠️ Por favor ingresa un número de serie válido:")
         return
     await state.update_data(serie=serie)
-    await enviar_mensaje_seguro(message.chat.id, "Paso 5/7: Ingresa el NÚMERO DE MOTOR:")
+    await message.answer("Paso 5/7: Ingresa el NÚMERO DE MOTOR:")
     await state.set_state(PermisoForm.motor)
 
 @dp.message(PermisoForm.motor)
 async def get_motor(message: types.Message, state: FSMContext):
     motor = limpiar_entrada(message.text)
     if not motor:
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un número de motor válido:")
+        await message.answer("⚠️ Por favor ingresa un número de motor válido:")
         return
     await state.update_data(motor=motor)
-    await enviar_mensaje_seguro(message.chat.id, "Paso 6/7: Ingresa el COLOR:")
+    await message.answer("Paso 6/7: Ingresa el COLOR:")
     await state.set_state(PermisoForm.color)
 
 @dp.message(PermisoForm.color)
 async def get_color(message: types.Message, state: FSMContext):
     color = limpiar_entrada(message.text)
     if not color:
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un color válido:")
+        await message.answer("⚠️ Por favor ingresa un color válido:")
         return
     await state.update_data(color=color)
-    await enviar_mensaje_seguro(message.chat.id, "Paso 7/7: Ingresa el NOMBRE COMPLETO del titular:")
+    await message.answer("Paso 7/7: Ingresa el NOMBRE COMPLETO del titular:")
     await state.set_state(PermisoForm.nombre)
 
 @dp.message(PermisoForm.nombre)
@@ -432,7 +443,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
     datos = await state.get_data()
     nombre = limpiar_entrada(message.text)
     if not nombre:
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ Por favor ingresa un nombre válido:")
+        await message.answer("⚠️ Por favor ingresa un nombre válido:")
         return
     
     datos["nombre"] = nombre
@@ -446,21 +457,23 @@ async def get_nombre(message: types.Message, state: FSMContext):
     datos["fecha_exp_dt"] = hoy
     datos["fecha_ven_dt"] = ven
 
-    await enviar_mensaje_seguro(
-        message.chat.id,
+    await message.answer(
         f"🔄 Generando permiso...\n"
         f"📄 Folio: {datos['folio']}\n"
         f"👤 Titular: {datos['nombre']}"
     )
 
     try:
+        # Generar PDF
         pdf_path = generar_pdf_ags(datos)
 
+        # Enviar PDF al usuario
         await message.answer_document(
             FSInputFile(pdf_path),
             caption=f"📄 PERMISO DIGITAL – AGUASCALIENTES\nFolio: {datos['folio']}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}"
         )
 
+        # Guardar en Supabase
         supabase.table("folios_registrados").insert({
             "folio": datos["folio"],
             "marca": datos["marca"],
@@ -478,20 +491,20 @@ async def get_nombre(message: types.Message, state: FSMContext):
             "username": message.from_user.username or "Sin username"
         }).execute()
 
+        # INICIAR TIMER DE 12 HORAS
         await iniciar_timer_12h(message.from_user.id, datos["folio"])
 
-        await enviar_mensaje_seguro(
-            message.chat.id,
+        await message.answer(
             f"💰 INSTRUCCIONES DE PAGO\n"
             f"📄 Folio: {datos['folio']}\n"
             f"💵 Monto: ${PRECIO_PERMISO} MXN\n"
             f"⏰ Tiempo límite: 12 horas\n\n"
             "📸 Envía la foto de tu comprobante aquí mismo.\n"
-            "🔑 ADMIN: Para validar manual, enviar SERO<folio> (ej. SERO1292)."
+            "🔑 ADMIN: Para validar manual, enviar SERO{datos['folio']} (ej. SERO1292)."
         )
 
     except Exception as e:
-        await enviar_mensaje_seguro(message.chat.id, f"❌ ERROR: {e}\n\nIntenta de nuevo con /permiso")
+        await message.answer(f"❌ ERROR: {e}\n\nIntenta de nuevo con /permiso")
     finally:
         await state.clear()
 
@@ -500,54 +513,57 @@ async def recibir_comprobante(message: types.Message):
     user_id = message.from_user.id
     folios = obtener_folios_usuario(user_id)
     if not folios:
-        await enviar_mensaje_seguro(message.chat.id, "ℹ️ No tienes folios pendientes. Usa /permiso para iniciar uno nuevo.")
+        await message.answer("ℹ️ No tienes folios pendientes. Usa /permiso para iniciar uno nuevo.")
         return
     
-    folio = folios[-1]
+    folio = folios[-1]  # Último folio creado
     cancelar_timer_folio(folio)
+    
+    # Actualizar estado en Supabase
     now = datetime.now().isoformat()
-
     with suppress(Exception):
         supabase.table("folios_registrados").update({
             "estado": "COMPROBANTE_ENVIADO",
             "fecha_comprobante": now
         }).eq("folio", folio).execute()
 
-    await enviar_mensaje_seguro(
-        message.chat.id,
-        f"✅ Comprobante recibido\nFolio: {folio}\n⏹️ Timer detenido."
+    await message.answer(
+        f"✅ Comprobante recibido\n"
+        f"📄 Folio: {folio}\n"
+        f"⏹️ Timer detenido."
     )
 
 @dp.message(lambda m: m.text and m.text.strip().upper().startswith("SERO"))
 async def codigo_admin(message: types.Message):
+    """Comando SERO + folio para validar manualmente y detener timer"""
     texto = message.text.strip().upper()
     folio = texto.replace("SERO", "", 1).strip()
+    
     if not folio or not folio.startswith("129"):
-        await enviar_mensaje_seguro(message.chat.id, "⚠️ Formato: SERO1292 (folio debe iniciar con 129).")
+        await message.answer("⚠️ Formato: SERO1292 (folio debe iniciar con 129).")
         return
 
-    cancelar_timer_folio(folio)
-    now = datetime.now().isoformat()
+    # CANCELAR TIMER ESPECÍFICO
+    timer_cancelado = cancelar_timer_folio(folio)
     
+    # Actualizar estado en Supabase
+    now = datetime.now().isoformat()
     with suppress(Exception):
         supabase.table("folios_registrados").update({
             "estado": "VALIDADO_ADMIN",
             "fecha_comprobante": now
         }).eq("folio", folio).execute()
 
-    await enviar_mensaje_seguro(message.chat.id, f"✅ Validación admin exitosa\nFolio: {folio}")
-
-@dp.message(lambda m: m.text and any(p in m.text.lower() for p in ["costo","precio","cuanto","pago","monto"]))
-async def responder_costo(message: types.Message):
-    await enviar_mensaje_seguro(message.chat.id, f"💰 Costo del permiso: ${PRECIO_PERMISO} MXN\nUsa /permiso para iniciar tu trámite.")
+    if timer_cancelado:
+        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio}\n⏹️ Timer detenido")
+    else:
+        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio}\n⚠️ Timer ya estaba inactivo")
 
 @dp.message()
 async def fallback(message: types.Message):
-    await enviar_mensaje_seguro(message.chat.id, "🏛️ Sistema Digital Aguascalientes. Usa /permiso para iniciar.")
+    await message.answer("🏛️ Sistema Digital Aguascalientes. Usa /permiso para iniciar.")
 
-# ===================== FASTAPI + WEBHOOK =====================
-_keep_task = None
-
+# ===================== FASTAPI =====================
 async def keep_alive():
     while True:
         await asyncio.sleep(600)
@@ -567,135 +583,18 @@ async def lifespan(app: FastAPI):
             await _keep_task
     await bot.session.close()
 
-app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="1.1.0")
+app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS Minimal", version="2.0.0")
 
-# ===================== SERVIR IMÁGENES DESDE LA RAÍZ =====================
-@app.get("/encabezado.jpg")
-async def serve_encabezado():
-    """Sirve la imagen encabezado.jpg desde la raíz del proyecto"""
-    file_path = "encabezado.jpg"
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="image/jpeg")
-    return HTMLResponse("Imagen encabezado.jpg no encontrada", status_code=404)
+# Montar archivos estáticos (imágenes)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-@app.get("/pie.jpg") 
-async def serve_pie():
-    """Sirve la imagen pie.jpg desde la raíz del proyecto"""
-    file_path = "pie.jpg"
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="image/jpeg")
-    return HTMLResponse("Imagen pie.jpg no encontrada", status_code=404)
+_keep_task = None
 
-# ===================== ENDPOINT DE PRUEBA DE IMÁGENES =====================
-@app.get("/test-images")
-async def test_images():
-    """Endpoint para probar que las imágenes se sirven correctamente"""
-    return HTMLResponse("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Test de Imágenes - Aguascalientes</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
-            img { max-width: 100%; margin: 20px 0; border: 1px solid #ddd; border-radius: 5px; }
-            h1 { color: #2c3e50; text-align: center; }
-            .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
-            .success { background: #e8f5e8; color: #2d5730; }
-            .error { background: #ffeaea; color: #8b2635; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🧪 Test de Imágenes del Template</h1>
-            
-            <h3>Encabezado (encabezado.jpg):</h3>
-            <img src="/encabezado.jpg" alt="Test Encabezado" 
-                 onload="document.getElementById('enc-status').className='status success'; document.getElementById('enc-status').innerHTML='✅ Encabezado cargado correctamente'"
-                 onerror="document.getElementById('enc-status').className='status error'; document.getElementById('enc-status').innerHTML='❌ Error: No se pudo cargar encabezado.jpg'">
-            <div id="enc-status" class="status">⏳ Cargando encabezado...</div>
-            
-            <h3>Pie de página (pie.jpg):</h3>
-            <img src="/pie.jpg" alt="Test Pie" 
-                 onload="document.getElementById('pie-status').className='status success'; document.getElementById('pie-status').innerHTML='✅ Pie cargado correctamente'"
-                 onerror="document.getElementById('pie-status').className='status error'; document.getElementById('pie-status').innerHTML='❌ Error: No se pudo cargar pie.jpg'">
-            <div id="pie-status" class="status">⏳ Cargando pie...</div>
-            
-            <h3>Instrucciones:</h3>
-            <ul>
-                <li>Si las imágenes se ven correctamente, tu template funcionará perfecto</li>
-                <li>Si aparece error, verifica que los archivos encabezado.jpg y pie.jpg estén en la raíz del proyecto</li>
-                <li>Las imágenes deben estar al mismo nivel que tu archivo .py principal</li>
-            </ul>
-            
-            <h3>Enlaces útiles:</h3>
-            <ul>
-                <li><a href="/consulta">Consulta de folios</a></li>
-                <li><a href="/stats">Estadísticas del sistema</a></li>
-                <li><a href="/health">Estado del sistema</a></li>
-            </ul>
-        </div>
-    </body>
-    </html>
-    """)
-
-# ===================== ENDPOINTS PRINCIPALES =====================
-@app.get("/", response_class=HTMLResponse)
-async def health():
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Sistema Permisos Aguascalientes</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            h1 { color: #2c3e50; text-align: center; }
-            .status { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            .links { margin: 30px 0; }
-            .link-button { 
-                display: inline-block; 
-                margin: 10px; 
-                padding: 12px 20px; 
-                background: #007bff; 
-                color: white; 
-                text-decoration: none; 
-                border-radius: 5px; 
-                transition: background 0.3s;
-            }
-            .link-button:hover { background: #0056b3; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🏛️ Sistema Digital de Permisos - Aguascalientes</h1>
-            <div class="status">
-                <h3>📊 Estado del Sistema</h3>
-                <ul>
-                    <li><strong>Estado:</strong> ✅ En línea</li>
-                    <li><strong>Costo:</strong> $180 MXN</li>
-                    <li><strong>Tiempo límite:</strong> 12 horas</li>
-                </ul>
-            </div>
-            
-            <div class="links">
-                <h3>🔗 Enlaces de utilidad:</h3>
-                <a href="/consulta" class="link-button">📋 Consultar Folio</a>
-                <a href="/stats" class="link-button">📊 Estadísticas</a>
-                <a href="/test-images" class="link-button">🧪 Test Imágenes</a>
-                <a href="/health" class="link-button">⚡ Estado API</a>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+# ===================== ENDPOINTS ESENCIALES =====================
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
+    """Webhook para recibir mensajes de Telegram"""
     try:
         data = await request.json()
         update = types.Update(**data)
@@ -707,22 +606,27 @@ async def telegram_webhook(request: Request):
 
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str):
+    """ENDPOINT PRINCIPAL: Muestra el template HTML con los datos del folio"""
     try:
+        print(f"[CONSULTA] Consultando folio: {folio}")
+        
         folio_limpio = ''.join(c for c in folio if c.isalnum())
         res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
         row = (res.data or [None])[0]
         
         if not row:
+            print(f"[CONSULTA] Folio no encontrado: {folio_limpio}")
             return HTMLResponse("""
+            <!DOCTYPE html>
             <html>
             <head>
                 <title>Folio No Encontrado</title>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
-                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-                    .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                    .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; text-align: center; }
+                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; text-align: center; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+                    .error { background: #ffebee; color: #c62828; padding: 20px; border-radius: 8px; }
                 </style>
             </head>
             <body>
@@ -736,25 +640,30 @@ async def estado_folio(folio: str):
             </html>
             """, status_code=404)
         
-        # Verificar si está vigente
+        # Verificar vigencia
         hoy = datetime.now(ZoneInfo(TZ)).date()
         fecha_ven = datetime.fromisoformat(row['fecha_vencimiento']).date()
         vigente = hoy <= fecha_ven
         
-        return HTMLResponse(renderizar_resultado_consulta(row, vigente))
+        print(f"[CONSULTA] Folio encontrado: {folio_limpio}, Vigente: {vigente}")
+        
+        # Renderizar template
+        html_resultado = renderizar_resultado_consulta(row, vigente)
+        return HTMLResponse(html_resultado)
         
     except Exception as e:
         print(f"[CONSULTA] Error: {e}")
         return HTMLResponse(f"""
+        <!DOCTYPE html>
         <html>
         <head>
             <title>Error del Sistema</title>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-                .error {{ background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; text-align: center; }}
+                body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; text-align: center; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }}
+                .error {{ background: #ffebee; color: #c62828; padding: 20px; border-radius: 8px; }}
             </style>
         </head>
         <body>
@@ -769,294 +678,75 @@ async def estado_folio(folio: str):
         </html>
         """, status_code=500)
 
-@app.get("/consulta")
-async def consulta_form():
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """Página de inicio simple"""
     return HTMLResponse("""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Consulta de Folio - Aguascalientes</title>
+        <title>Sistema Permisos Aguascalientes</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             body { 
                 font-family: Arial, sans-serif; 
                 margin: 0; 
-                padding: 20px; 
+                padding: 40px; 
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
+                text-align: center;
             }
             .container { 
-                max-width: 500px; 
+                max-width: 600px; 
                 margin: 0 auto; 
                 background: white; 
                 padding: 40px; 
                 border-radius: 15px; 
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             }
-            h1 { 
-                color: #2c3e50; 
-                text-align: center; 
-                margin-bottom: 30px;
-                font-size: 24px;
-            }
-            .form-group { 
-                margin-bottom: 20px; 
-            }
-            label { 
-                display: block; 
-                margin-bottom: 8px; 
-                color: #555; 
-                font-weight: bold;
-            }
-            input[type="text"] { 
-                width: 100%; 
-                padding: 12px; 
-                border: 2px solid #ddd; 
-                border-radius: 8px; 
-                font-size: 16px;
-                box-sizing: border-box;
-                transition: border-color 0.3s;
-            }
-            input[type="text"]:focus { 
-                outline: none; 
-                border-color: #667eea; 
-            }
-            button { 
-                width: 100%; 
-                padding: 15px; 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                color: white; 
-                border: none; 
-                border-radius: 8px; 
-                font-size: 16px; 
-                font-weight: bold;
-                cursor: pointer;
-                transition: transform 0.2s;
-            }
-            button:hover { 
-                transform: translateY(-2px); 
-            }
+            h1 { color: #2c3e50; margin-bottom: 30px; }
             .info { 
-                background: #e3f2fd; 
-                padding: 15px; 
-                border-radius: 8px; 
-                margin-bottom: 20px; 
-                text-align: center;
-                color: #1976d2;
-            }
-            .back-link {
-                text-align: center;
-                margin-top: 20px;
-            }
-            .back-link a {
-                color: #667eea;
-                text-decoration: none;
-                font-weight: bold;
+                background: #e8f5e8; 
+                padding: 20px; 
+                border-radius: 10px; 
+                margin: 20px 0; 
+                color: #2d5730;
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🏛️ Consulta de Folio</h1>
-            <div class="info">
-                <strong>Sistema Digital de Permisos - Aguascalientes</strong>
-            </div>
-            <form onsubmit="consultarFolio(event)">
-                <div class="form-group">
-                    <label for="folio">Número de Folio:</label>
-                    <input type="text" id="folio" name="folio" placeholder="Ej: 1292" required>
-                </div>
-                <button type="submit">🔍 Consultar Estado</button>
-            </form>
+            <h1>🏛️ Sistema Digital de Permisos</h1>
+            <h2>Aguascalientes</h2>
             
-            <div class="back-link">
-                <a href="/">← Volver al inicio</a>
+            <div class="info">
+                <h3>📊 Estado del Sistema</h3>
+                <ul style="text-align: left;">
+                    <li><strong>Estado:</strong> ✅ En línea</li>
+                    <li><strong>Costo:</strong> $180 MXN</li>
+                    <li><strong>Tiempo límite:</strong> 12 horas</li>
+                    <li><strong>Timers activos:</strong> {len(timers_activos)}</li>
+                </ul>
             </div>
+            
+            <p>Para obtener tu permiso, inicia una conversación en nuestro bot de Telegram.</p>
         </div>
-        
-        <script>
-        function consultarFolio(event) {
-            event.preventDefault();
-            const folio = document.getElementById('folio').value.trim();
-            if (folio) {
-                window.location.href = `/estado_folio/${folio}`;
-            }
-        }
-        </script>
     </body>
     </html>
     """)
 
-@app.get("/stats")
-async def estadisticas():
-    try:
-        # Estadísticas básicas
-        total = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).execute()
-        pendientes = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "PENDIENTE").execute()
-        validados = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "VALIDADO_ADMIN").execute()
-        con_comprobante = supabase.table("folios_registrados").select("count", count="exact").eq("entidad", ENTIDAD).eq("estado", "COMPROBANTE_ENVIADO").execute()
-        
-        total_count = total.count or 0
-        pendientes_count = pendientes.count or 0
-        validados_count = validados.count or 0
-        comprobante_count = con_comprobante.count or 0
-        
-        timers_count = len(timers_activos)
-        
-        return HTMLResponse(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Estadísticas - Sistema Aguascalientes</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ 
-                    font-family: Arial, sans-serif; 
-                    margin: 0; 
-                    padding: 20px; 
-                    background: #f5f7fa;
-                }}
-                .container {{ 
-                    max-width: 800px; 
-                    margin: 0 auto; 
-                    background: white; 
-                    padding: 30px; 
-                    border-radius: 10px; 
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-                }}
-                h1 {{ 
-                    color: #2c3e50; 
-                    text-align: center; 
-                    margin-bottom: 30px;
-                }}
-                .stats-grid {{ 
-                    display: grid; 
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-                    gap: 20px; 
-                    margin-bottom: 30px;
-                }}
-                .stat-card {{ 
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    color: white; 
-                    padding: 20px; 
-                    border-radius: 10px; 
-                    text-align: center;
-                }}
-                .stat-number {{ 
-                    font-size: 2em; 
-                    font-weight: bold; 
-                    margin-bottom: 5px;
-                }}
-                .stat-label {{ 
-                    font-size: 0.9em; 
-                    opacity: 0.9;
-                }}
-                .info-section {{ 
-                    background: #f8f9fa; 
-                    padding: 20px; 
-                    border-radius: 8px; 
-                    margin-top: 20px;
-                }}
-                .refresh-btn {{ 
-                    background: #28a745; 
-                    color: white; 
-                    border: none; 
-                    padding: 10px 20px; 
-                    border-radius: 5px; 
-                    cursor: pointer; 
-                    float: right;
-                }}
-                .back-link {{
-                    text-align: center;
-                    margin-top: 30px;
-                }}
-                .back-link a {{
-                    color: #667eea;
-                    text-decoration: none;
-                    font-weight: bold;
-                    padding: 10px 20px;
-                    border: 2px solid #667eea;
-                    border-radius: 5px;
-                    transition: all 0.3s;
-                }}
-                .back-link a:hover {{
-                    background: #667eea;
-                    color: white;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>📊 Estadísticas del Sistema</h1>
-                <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar</button>
-                <div style="clear: both;"></div>
-                
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number">{total_count}</div>
-                        <div class="stat-label">Total Folios</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{pendientes_count}</div>
-                        <div class="stat-label">Pendientes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{comprobante_count}</div>
-                        <div class="stat-label">Con Comprobante</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{validados_count}</div>
-                        <div class="stat-label">Validados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">{timers_count}</div>
-                        <div class="stat-label">Timers Activos</div>
-                    </div>
-                </div>
-                
-                <div class="info-section">
-                    <h3>ℹ️ Información del Sistema</h3>
-                    <ul>
-                        <li><strong>Entidad:</strong> {ENTIDAD.upper()}</li>
-                        <li><strong>Costo por permiso:</strong> ${PRECIO_PERMISO} MXN</li>
-                        <li><strong>Tiempo límite:</strong> 12 horas</li>
-                        <li><strong>Zona horaria:</strong> {TZ}</li>
-                        <li><strong>Última actualización:</strong> {datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y %H:%M:%S")}</li>
-                    </ul>
-                </div>
-                
-                <div class="back-link">
-                    <a href="/">← Volver al inicio</a>
-                </div>
-            </div>
-        </body>
-        </html>
-        """)
-        
-    except Exception as e:
-        return HTMLResponse(f"""
-        <html>
-        <body>
-            <h1>Error en Estadísticas</h1>
-            <p>Error: {str(e)}</p>
-            <a href="/">Volver al inicio</a>
-        </body>
-        </html>
-        """, status_code=500)
-
-# ===================== HEALTH CHECK AVANZADO =====================
 @app.get("/health")
 async def health_check():
+    """Health check para monitoreo"""
     try:
         # Verificar conexión a Supabase
         test_query = supabase.table("folios_registrados").select("count", count="exact").limit(1).execute()
-        db_status = "✅ Conectado" if test_query else "❌ Error"
+        db_status = "conectado" if test_query else "error"
         
         # Verificar bot
         bot_info = await bot.get_me()
-        bot_status = f"✅ @{bot_info.username}" if bot_info else "❌ Error"
+        bot_status = f"@{bot_info.username}" if bot_info else "error"
         
         return {
             "status": "healthy",
@@ -1075,249 +765,13 @@ async def health_check():
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()
         }
 
-# ===================== ENDPOINT DE LIMPIEZA =====================
-@app.post("/admin/cleanup")
-async def cleanup_expired(admin_key: str = ""):
-    if admin_key != "AGS2024":  # Cambiar por una clave segura
-        return {"error": "Unauthorized"}
-    
-    try:
-        # Limpiar folios vencidos sin comprobante
-        cutoff = datetime.now(ZoneInfo(TZ)) - timedelta(hours=12)
-        expired = supabase.table("folios_registrados").select("folio").eq("entidad", ENTIDAD).eq("estado", "PENDIENTE").lt("created_at", cutoff.isoformat()).execute()
-        
-        deleted_count = 0
-        for record in (expired.data or []):
-            folio = record["folio"]
-            supabase.table("folios_registrados").delete().eq("folio", folio).execute()
-            cancelar_timer_folio(folio)
-            deleted_count += 1
-        
-        return {
-            "status": "success",
-            "deleted_folios": deleted_count,
-            "remaining_timers": len(timers_activos)
-        }
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
-
-# AGREGA ESTOS IMPORTS al inicio de tu archivo app.py
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, FileResponse
-import os
-import mimetypes
-
-# Después de crear la app FastAPI, AGREGA ESTOS ENDPOINTS EXACTOS:
-
-@app.get("/encabezado.jpg", response_class=FileResponse)
-async def serve_encabezado():
-    """Sirve la imagen encabezado.jpg desde la raíz del proyecto"""
-    file_path = "encabezado.jpg"
-    
-    # Verificar que el archivo existe
-    if not os.path.exists(file_path):
-        print(f"[ERROR] Archivo no encontrado: {file_path}")
-        raise HTTPException(status_code=404, detail="Imagen no encontrada")
-    
-    # Determinar el tipo MIME correcto
-    mime_type, _ = mimetypes.guess_type(file_path)
-    if mime_type is None:
-        mime_type = "image/jpeg"
-    
-    print(f"[INFO] Sirviendo {file_path} con tipo MIME: {mime_type}")
-    
-    return FileResponse(
-        path=file_path,
-        media_type=mime_type,
-        filename="encabezado.jpg",
-        headers={
-            "Cache-Control": "public, max-age=3600",
-            "Content-Disposition": "inline; filename=encabezado.jpg"
-        }
-    )
-
-@app.get("/pie.jpg", response_class=FileResponse)
-async def serve_pie():
-    """Sirve la imagen pie.jpg desde la raíz del proyecto"""
-    file_path = "pie.jpg"
-    
-    # Verificar que el archivo existe
-    if not os.path.exists(file_path):
-        print(f"[ERROR] Archivo no encontrado: {file_path}")
-        raise HTTPException(status_code=404, detail="Imagen no encontrada")
-    
-    # Determinar el tipo MIME correcto
-    mime_type, _ = mimetypes.guess_type(file_path)
-    if mime_type is None:
-        mime_type = "image/jpeg"
-    
-    print(f"[INFO] Sirviendo {file_path} con tipo MIME: {mime_type}")
-    
-    return FileResponse(
-        path=file_path,
-        media_type=mime_type,
-        filename="pie.jpg",
-        headers={
-            "Cache-Control": "public, max-age=3600",
-            "Content-Disposition": "inline; filename=pie.jpg"
-        }
-    )
-
-# ENDPOINT DE DEBUG para verificar que todo funciona
-@app.get("/debug-images")
-async def debug_images():
-    """Endpoint para debuggear las imágenes"""
-    
-    # Verificar archivos
-    encabezado_exists = os.path.exists("encabezado.jpg")
-    pie_exists = os.path.exists("pie.jpg")
-    
-    # Obtener información de los archivos
-    encabezado_info = {}
-    pie_info = {}
-    
-    if encabezado_exists:
-        stat = os.stat("encabezado.jpg")
-        encabezado_info = {
-            "tamaño": stat.st_size,
-            "ruta_absoluta": os.path.abspath("encabezado.jpg"),
-            "es_legible": os.access("encabezado.jpg", os.R_OK)
-        }
-    
-    if pie_exists:
-        stat = os.stat("pie.jpg")
-        pie_info = {
-            "tamaño": stat.st_size,
-            "ruta_absoluta": os.path.abspath("pie.jpg"),
-            "es_legible": os.access("pie.jpg", os.R_OK)
-        }
-    
-    return {
-        "directorio_trabajo": os.getcwd(),
-        "encabezado": {
-            "existe": encabezado_exists,
-            "info": encabezado_info
-        },
-        "pie": {
-            "existe": pie_exists,
-            "info": pie_info
-        },
-        "todos_los_archivos": os.listdir('.'),
-        "archivos_imagen": [f for f in os.listdir('.') if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
-    }
-
-# ENDPOINT DE PRUEBA VISUAL
-@app.get("/test-imagenes-visual")
-async def test_imagenes_visual():
-    """Test visual para ver si las imágenes cargan"""
-    return HTMLResponse("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Test Visual de Imágenes</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body { 
-                font-family: Arial, sans-serif; 
-                margin: 20px; 
-                background: #f5f5f5; 
-            }
-            .container { 
-                max-width: 800px; 
-                margin: 0 auto; 
-                background: white; 
-                padding: 30px; 
-                border-radius: 10px; 
-            }
-            .test-image { 
-                border: 2px solid #ddd; 
-                margin: 20px 0; 
-                padding: 10px; 
-                border-radius: 5px; 
-            }
-            .test-image img { 
-                max-width: 100%; 
-                height: auto; 
-            }
-            .status { 
-                padding: 10px; 
-                margin: 10px 0; 
-                border-radius: 5px; 
-                font-weight: bold; 
-            }
-            .success { background: #d4edda; color: #155724; }
-            .error { background: #f8d7da; color: #721c24; }
-            .loading { background: #d1ecf1; color: #0c5460; }
-        </style>
-        <script>
-            function imageLoaded(imgElement, statusId) {
-                document.getElementById(statusId).className = 'status success';
-                document.getElementById(statusId).innerHTML = '✅ Imagen cargada correctamente';
-            }
-            
-            function imageError(imgElement, statusId) {
-                document.getElementById(statusId).className = 'status error';
-                document.getElementById(statusId).innerHTML = '❌ Error: No se pudo cargar la imagen';
-            }
-        </script>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🧪 Test Visual de Imágenes</h1>
-            
-            <div class="test-image">
-                <h3>Encabezado (encabezado.jpg):</h3>
-                <div id="status-enc" class="status loading">⏳ Cargando encabezado...</div>
-                <img src="/encabezado.jpg" 
-                     alt="Test Encabezado"
-                     onload="imageLoaded(this, 'status-enc')"
-                     onerror="imageError(this, 'status-enc')">
-            </div>
-            
-            <div class="test-image">
-                <h3>Pie (pie.jpg):</h3>
-                <div id="status-pie" class="status loading">⏳ Cargando pie...</div>
-                <img src="/pie.jpg" 
-                     alt="Test Pie"
-                     onload="imageLoaded(this, 'status-pie')"
-                     onerror="imageError(this, 'status-pie')">
-            </div>
-            
-            <h3>Enlaces de debug:</h3>
-            <ul>
-                <li><a href="/debug-images" target="_blank">Ver información técnica de las imágenes</a></li>
-                <li><a href="/encabezado.jpg" target="_blank">Abrir encabezado.jpg directamente</a></li>
-                <li><a href="/pie.jpg" target="_blank">Abrir pie.jpg directamente</a></li>
-            </ul>
-            
-            <h3>Simulación del template:</h3>
-            <div style="border: 2px solid #4caf50; background: #e8f5e8; padding: 20px; border-radius: 15px; margin: 20px 0;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="/encabezado.jpg" alt="Encabezado" style="width: 100%; max-width: 300px;">
-                </div>
-                
-                <div style="color: #2d5730; font-weight: bold;">
-                    <div>Marca: HYUNDAI</div>
-                    <div>Línea: GRAND I10</div>
-                    <div>Año: 2016</div>
-                    <div>Vigencia: VIGENTE</div>
-                </div>
-                
-                <div style="text-align: center; margin-top: 20px;">
-                    <img src="/pie.jpg" alt="Pie" style="width: 100%; max-width: 300px;">
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """)
-
 # ===================== EJECUTAR SERVIDOR =====================
 if __name__ == "__main__":
     import uvicorn
-    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes...")
+    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes Minimal...")
     print(f"[SISTEMA] Base URL: {BASE_URL}")
     print(f"[SISTEMA] Entidad: {ENTIDAD}")
     print(f"[SISTEMA] Precio: ${PRECIO_PERMISO} MXN")
+    print(f"[SISTEMA] Directorio static: {STATIC_DIR}")
+    print(f"[SISTEMA] Directorio templates: {TEMPLATES_DIR}")
     uvicorn.run(app, host="0.0.0.0", port=8000)

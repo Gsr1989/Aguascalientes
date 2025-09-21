@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
@@ -130,13 +130,6 @@ def obtener_folios_usuario(user_id: int):
     return user_folios.get(user_id, [])
 
 # ===================== FUNCIONES DE TEMPLATES =====================
-def crear_template_resultado():
-    template_path = os.path.join(TEMPLATES_DIR, "resultado_consulta.html")
-    if not os.path.exists(template_path):
-        # El template ya está creado como archivo separado
-        pass
-    return template_path
-
 def renderizar_resultado_consulta(row, vigente=True):
     try:
         template = jinja_env.get_template('resultado_consulta.html')
@@ -576,6 +569,79 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="1.1.0")
 
+# ===================== SERVIR IMÁGENES DESDE LA RAÍZ =====================
+@app.get("/encabezado.jpg")
+async def serve_encabezado():
+    """Sirve la imagen encabezado.jpg desde la raíz del proyecto"""
+    file_path = "encabezado.jpg"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/jpeg")
+    return HTMLResponse("Imagen encabezado.jpg no encontrada", status_code=404)
+
+@app.get("/pie.jpg") 
+async def serve_pie():
+    """Sirve la imagen pie.jpg desde la raíz del proyecto"""
+    file_path = "pie.jpg"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/jpeg")
+    return HTMLResponse("Imagen pie.jpg no encontrada", status_code=404)
+
+# ===================== ENDPOINT DE PRUEBA DE IMÁGENES =====================
+@app.get("/test-images")
+async def test_images():
+    """Endpoint para probar que las imágenes se sirven correctamente"""
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test de Imágenes - Aguascalientes</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+            img { max-width: 100%; margin: 20px 0; border: 1px solid #ddd; border-radius: 5px; }
+            h1 { color: #2c3e50; text-align: center; }
+            .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+            .success { background: #e8f5e8; color: #2d5730; }
+            .error { background: #ffeaea; color: #8b2635; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🧪 Test de Imágenes del Template</h1>
+            
+            <h3>Encabezado (encabezado.jpg):</h3>
+            <img src="/encabezado.jpg" alt="Test Encabezado" 
+                 onload="document.getElementById('enc-status').className='status success'; document.getElementById('enc-status').innerHTML='✅ Encabezado cargado correctamente'"
+                 onerror="document.getElementById('enc-status').className='status error'; document.getElementById('enc-status').innerHTML='❌ Error: No se pudo cargar encabezado.jpg'">
+            <div id="enc-status" class="status">⏳ Cargando encabezado...</div>
+            
+            <h3>Pie de página (pie.jpg):</h3>
+            <img src="/pie.jpg" alt="Test Pie" 
+                 onload="document.getElementById('pie-status').className='status success'; document.getElementById('pie-status').innerHTML='✅ Pie cargado correctamente'"
+                 onerror="document.getElementById('pie-status').className='status error'; document.getElementById('pie-status').innerHTML='❌ Error: No se pudo cargar pie.jpg'">
+            <div id="pie-status" class="status">⏳ Cargando pie...</div>
+            
+            <h3>Instrucciones:</h3>
+            <ul>
+                <li>Si las imágenes se ven correctamente, tu template funcionará perfecto</li>
+                <li>Si aparece error, verifica que los archivos encabezado.jpg y pie.jpg estén en la raíz del proyecto</li>
+                <li>Las imágenes deben estar al mismo nivel que tu archivo .py principal</li>
+            </ul>
+            
+            <h3>Enlaces útiles:</h3>
+            <ul>
+                <li><a href="/consulta">Consulta de folios</a></li>
+                <li><a href="/stats">Estadísticas del sistema</a></li>
+                <li><a href="/health">Estado del sistema</a></li>
+            </ul>
+        </div>
+    </body>
+    </html>
+    """)
+
+# ===================== ENDPOINTS PRINCIPALES =====================
 @app.get("/", response_class=HTMLResponse)
 async def health():
     return """
@@ -590,6 +656,18 @@ async def health():
             .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
             h1 { color: #2c3e50; text-align: center; }
             .status { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .links { margin: 30px 0; }
+            .link-button { 
+                display: inline-block; 
+                margin: 10px; 
+                padding: 12px 20px; 
+                background: #007bff; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 5px; 
+                transition: background 0.3s;
+            }
+            .link-button:hover { background: #0056b3; }
         </style>
     </head>
     <body>
@@ -600,7 +678,16 @@ async def health():
                 <ul>
                     <li><strong>Estado:</strong> ✅ En línea</li>
                     <li><strong>Costo:</strong> $180 MXN</li>
+                    <li><strong>Tiempo límite:</strong> 12 horas</li>
                 </ul>
+            </div>
+            
+            <div class="links">
+                <h3>🔗 Enlaces de utilidad:</h3>
+                <a href="/consulta" class="link-button">📋 Consultar Folio</a>
+                <a href="/stats" class="link-button">📊 Estadísticas</a>
+                <a href="/test-images" class="link-button">🧪 Test Imágenes</a>
+                <a href="/health" class="link-button">⚡ Estado API</a>
             </div>
         </div>
     </body>
@@ -758,6 +845,15 @@ async def consulta_form():
                 text-align: center;
                 color: #1976d2;
             }
+            .back-link {
+                text-align: center;
+                margin-top: 20px;
+            }
+            .back-link a {
+                color: #667eea;
+                text-decoration: none;
+                font-weight: bold;
+            }
         </style>
     </head>
     <body>
@@ -773,6 +869,10 @@ async def consulta_form():
                 </div>
                 <button type="submit">🔍 Consultar Estado</button>
             </form>
+            
+            <div class="back-link">
+                <a href="/">← Volver al inicio</a>
+            </div>
         </div>
         
         <script>
@@ -868,6 +968,23 @@ async def estadisticas():
                     cursor: pointer; 
                     float: right;
                 }}
+                .back-link {{
+                    text-align: center;
+                    margin-top: 30px;
+                }}
+                .back-link a {{
+                    color: #667eea;
+                    text-decoration: none;
+                    font-weight: bold;
+                    padding: 10px 20px;
+                    border: 2px solid #667eea;
+                    border-radius: 5px;
+                    transition: all 0.3s;
+                }}
+                .back-link a:hover {{
+                    background: #667eea;
+                    color: white;
+                }}
             </style>
         </head>
         <body>
@@ -909,6 +1026,10 @@ async def estadisticas():
                         <li><strong>Última actualización:</strong> {datetime.now(ZoneInfo(TZ)).strftime("%d/%m/%Y %H:%M:%S")}</li>
                     </ul>
                 </div>
+                
+                <div class="back-link">
+                    <a href="/">← Volver al inicio</a>
+                </div>
             </div>
         </body>
         </html>
@@ -920,163 +1041,10 @@ async def estadisticas():
         <body>
             <h1>Error en Estadísticas</h1>
             <p>Error: {str(e)}</p>
+            <a href="/">Volver al inicio</a>
         </body>
         </html>
         """, status_code=500)
-
-# ===================== CREAR TEMPLATE HTML =====================
-def crear_template_resultado():
-    template_content = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Resultado de Consulta - {{ folio }}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #ffffff;
-        }
-        
-        .container {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-        }
-        
-        .header {
-            width: 100%;
-            text-align: center;
-        }
-        
-        .header img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        
-        .content {
-            padding: 20px;
-            text-align: center;
-        }
-        
-        .resultado-box {
-            {% if vigente %}
-            background-color: #e8f5e8;
-            border: 2px solid #4caf50;
-            color: #2d5730;
-            {% else %}
-            background-color: #ffeaea;
-            border: 2px solid #f44336;
-            color: #8b2635;
-            {% endif %}
-            padding: 30px;
-            border-radius: 15px;
-            margin: 20px 0;
-            font-size: 16px;
-            line-height: 1.8;
-        }
-        
-        .dato {
-            margin: 12px 0;
-            font-weight: bold;
-            text-align: left;
-        }
-        
-        .boton-salir {
-            margin: 30px 0;
-        }
-        
-        .boton-salir a {
-            background-color: #2196F3;
-            color: white;
-            padding: 15px 30px;
-            text-decoration: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            display: inline-block;
-            transition: background-color 0.3s;
-        }
-        
-        .boton-salir a:hover {
-            background-color: #1976D2;
-        }
-        
-        .footer {
-            width: 100%;
-            text-align: center;
-            margin-top: 40px;
-        }
-        
-        .footer img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                width: 100%;
-                margin: 0;
-            }
-            
-            .content {
-                padding: 15px;
-            }
-            
-            .resultado-box {
-                padding: 20px;
-                font-size: 14px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Encabezado -->
-        <div class="header">
-            <img src="/static/encabezado.png" alt="Encabezado Aguascalientes">
-        </div>
-        
-        <!-- Contenido -->
-        <div class="content">
-            <div class="resultado-box">
-                <div class="dato">Folio: {{ folio }}</div>
-                <div class="dato">Marca: {{ marca }}</div>
-                <div class="dato">Línea: {{ linea }}</div>
-                <div class="dato">Año: {{ anio }}</div>
-                <div class="dato">Serie: {{ serie }}</div>
-                <div class="dato">Número de motor: {{ motor }}</div>
-                <div class="dato">Color: {{ color }}</div>
-                <div class="dato">Nombre: {{ nombre }}</div>
-                <div class="dato">Vigencia: {{ vigencia }}</div>
-                <div class="dato">Expedición: {{ expedicion }}</div>
-            </div>
-            
-            <div class="boton-salir">
-                <a href="https://epagos.aguascalientes.gob.mx/contribuciones/default.aspx?opcion=CapturaPlacaSIIF.aspx">Salir</a>
-            </div>
-        </div>
-        
-        <!-- Pie de página -->
-        <div class="footer">
-            <img src="/static/pie.png" alt="Pie Aguascalientes">
-        </div>
-    </div>
-</body>
-</html>"""
-    
-    template_path = os.path.join(TEMPLATES_DIR, "resultado_consulta.html")
-    with open(template_path, 'w', encoding='utf-8') as f:
-        f.write(template_content)
-    return template_path
-
-# Crear el template al inicializar
-crear_template_resultado()
 
 # ===================== HEALTH CHECK AVANZADO =====================
 @app.get("/health")
@@ -1133,6 +1101,11 @@ async def cleanup_expired(admin_key: str = ""):
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
+# ===================== EJECUTAR SERVIDOR =====================
 if __name__ == "__main__":
     import uvicorn
+    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes...")
+    print(f"[SISTEMA] Base URL: {BASE_URL}")
+    print(f"[SISTEMA] Entidad: {ENTIDAD}")
+    print(f"[SISTEMA] Precio: ${PRECIO_PERMISO} MXN")
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -258,13 +258,13 @@ def generar_pdf_ags(datos: dict) -> str:
             coords_ags = {
                 "folio": (730, 100, 28, (1, 0, 0)),
                 "marca": (245, 305, 20, (0, 0, 0)),
-                "modelo": (245, 350, 20, (0, 0, 0)),
+                "modelo": (245, 353, 20, (0, 0, 0)),
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
-                "motor": (245, 505, 20, (0, 0, 0)),
+                "motor": (245, 497, 20, (0, 0, 0)),
                 "nombre": (708, 505, 20, (0, 0, 0)),
-                "fecha_exp_larga": (315, 535, 20, (0, 0, 0)),
-                "fecha_ven_larga": (730, 535, 20, (0, 0, 0)),
+                "fecha_exp_larga": (323, 543, 20, (0, 0, 0)),
+                "fecha_ven_larga": (795, 543, 20, (0, 0, 0)),
             }
 
             def put(key, value):
@@ -297,7 +297,7 @@ def generar_pdf_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x, qr_y = 720, 140
+                    qr_x, qr_y = 890, 140
                     qr_width = qr_height = 115
                     
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)

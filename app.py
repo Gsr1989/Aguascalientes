@@ -259,7 +259,6 @@ def generar_pdf_ags(datos: dict) -> str:
                 "folio": (800, 100, 28, (1, 0, 0)),
                 "marca": (245, 305, 20, (0, 0, 0)),
                 "modelo": (300, 353, 20, (0, 0, 0)),
-                "anio": (245, 353, 20, (0, 0, 0)),  
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
                 "motor": (245, 498, 20, (0, 0, 0)),
@@ -277,7 +276,6 @@ def generar_pdf_ags(datos: dict) -> str:
             put("folio", datos["folio"])
             put("marca", datos["marca"])
             put("modelo", datos["linea"])
-            put("anio", datos["anio"])
             put("color", datos["color"])
             put("serie", datos["serie"])
             put("motor", datos["motor"])

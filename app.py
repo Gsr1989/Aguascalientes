@@ -256,15 +256,16 @@ def generar_pdf_ags(datos: dict) -> str:
 
             # Coordenadas para texto en plantilla
             coords_ags = {
-                "folio": (730, 100, 28, (1, 0, 0)),
+                "folio": (780, 100, 28, (1, 0, 0)),
                 "marca": (245, 305, 20, (0, 0, 0)),
-                "modelo": (245, 353, 20, (0, 0, 0)),
+                "modelo": (300, 353, 20, (0, 0, 0)),
+                "anio": (245, 353, 20, (0, 0, 0)),  
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
-                "motor": (245, 492, 20, (0, 0, 0)),
-                "nombre": (708, 492, 20, (0, 0, 0)),
+                "motor": (245, 498, 20, (0, 0, 0)),
+                "nombre": (708, 498, 20, (0, 0, 0)),
                 "fecha_exp_larga": (323, 543, 20, (0, 0, 0)),
-                "fecha_ven_larga": (810, 543, 20, (0, 0, 0)),
+                "fecha_ven_larga": (850, 543, 20, (0, 0, 0)),
             }
 
             def put(key, value):

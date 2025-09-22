@@ -285,7 +285,7 @@ def generar_pdf_ags(datos: dict) -> str:
             def fecha_larga(dt: datetime) -> str:
                 return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
             
-            put("fecha_exp_larga", f"{fecha_larga(datos['fecha_exp_dt'])}"), 
+            put("fecha_exp_larga", f"{fecha_larga(datos['fecha_exp_dt'])}")
             put("fecha_ven_larga", f"{fecha_larga(datos['fecha_ven_dt'])}")
             # Agregar QR
             try:

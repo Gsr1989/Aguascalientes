@@ -256,7 +256,7 @@ def generar_pdf_ags(datos: dict) -> str:
 
             # Coordenadas para texto en plantilla
             coords_ags = {
-                "folio": (780, 100, 28, (1, 0, 0)),
+                "folio": (800, 100, 28, (1, 0, 0)),
                 "marca": (245, 305, 20, (0, 0, 0)),
                 "modelo": (300, 353, 20, (0, 0, 0)),
                 "anio": (245, 353, 20, (0, 0, 0)),  
@@ -277,6 +277,7 @@ def generar_pdf_ags(datos: dict) -> str:
             put("folio", datos["folio"])
             put("marca", datos["marca"])
             put("modelo", datos["linea"])
+            put("anio", datos["anio"])
             put("color", datos["color"])
             put("serie", datos["serie"])
             put("motor", datos["motor"])
@@ -286,9 +287,8 @@ def generar_pdf_ags(datos: dict) -> str:
             def fecha_larga(dt: datetime) -> str:
                 return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
             
-            put("fecha_exp_larga", f"Exp: {fecha_larga(datos['fecha_exp_dt'])}")
-            put("fecha_ven_larga", f"Ven: {fecha_larga(datos['fecha_ven_dt'])}")
-
+            put("fecha_exp_larga", f"{fecha_larga(datos['fecha_exp'])}")
+            put("fecha_ven_larga", f"{fecha_larga(datos['fecha_ven'])}")
             # Agregar QR
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
@@ -323,7 +323,7 @@ def generar_pdf_ags(datos: dict) -> str:
                 datos["serie"],
                 datos["motor"] if datos["motor"].upper() != "SIN NUMERO" else "",
                 datos["nombre"],
-                f"Expedición: {datos['fecha_exp']}",
+                f"Expedición: {datos['fecha_exp']}"
                 f"Vencimiento: {datos['fecha_ven']}"
             ]
             

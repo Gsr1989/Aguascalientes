@@ -233,7 +233,7 @@ def renderizar_resultado_consulta(row, vigente=True):
             'nombre': row.get('contribuyente', ''),
             'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
             'expedicion': fecha_exp,
-            'vencimiento': fecha_ven,  # AGREGADA FECHA DE VENCIMIENTO
+            'vencimiento': fecha_ven,
             'vigente': vigente
         }
         
@@ -258,13 +258,10 @@ def generar_pdf_ags(datos: dict) -> str:
             coords_ags = {
                 "folio": (820, 100, 28, (1, 0, 0)),
                 "marca": (245, 305, 20, (0, 0, 0)),
-                "modelo": (245, 353, 20, (0, 0, 0)),
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
                 "motor": (245, 498, 20, (0, 0, 0)),
                 "nombre": (708, 498, 20, (0, 0, 0)),
-                "fecha_exp_larga": (323, 543, 20, (0, 0, 0)),
-                "fecha_ven_larga": (850, 543, 20, (0, 0, 0)),
             }
 
             def put(key, value):
@@ -273,20 +270,33 @@ def generar_pdf_ags(datos: dict) -> str:
                 x, y, s, col = coords_ags[key]
                 pg.insert_text((x, y), str(value), fontsize=s, color=col)
 
+            # Función para crear texto dinámico con AÑO
+            def insertar_modelo_con_anio(marca, linea, anio, x_inicial, y_pos):
+                """Inserta modelo + 4 espacios + AÑO de forma dinámica"""
+                modelo_completo = f"{marca} {linea}"
+                texto_con_anio = f"{modelo_completo}    AÑO {anio}"
+                pg.insert_text((x_inicial, y_pos), texto_con_anio, fontsize=20, color=(0, 0, 0))
+
+            # Insertar datos en coordenadas fijas
             put("folio", datos["folio"])
             put("marca", datos["marca"])
-            put("modelo", datos["linea"])
             put("color", datos["color"])
             put("serie", datos["serie"])
             put("motor", datos["motor"])
             put("nombre", datos["nombre"])
             
+            # Insertar modelo con AÑO dinámico (respetando coordenadas de "modelo")
+            insertar_modelo_con_anio(datos["marca"], datos["linea"], datos["anio"], 245, 353)
+            
+            # Fechas sin etiquetas
             ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
             def fecha_larga(dt: datetime) -> str:
                 return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
             
-            put("fecha_exp_larga", f"{fecha_larga(datos['fecha_exp'])}")
-            put("fecha_ven_larga", f"{fecha_larga(datos['fecha_ven'])}")
+            # Insertar fechas sin "Exp:" y "Ven:"
+            pg.insert_text((323, 543), fecha_larga(datos['fecha_exp']), fontsize=20, color=(0, 0, 0))
+            pg.insert_text((850, 543), fecha_larga(datos['fecha_ven']), fontsize=20, color=(0, 0, 0))
+            
             # Agregar QR
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
@@ -314,15 +324,18 @@ def generar_pdf_ags(datos: dict) -> str:
             y_pos = 120
             line_height = 25
             
+            # Crear texto del modelo dinámicamente
+            modelo_completo = f"{datos['marca']} {datos['linea']}"
+            texto_con_anio = f"{modelo_completo}    AÑO {datos['anio']}"
+            
             texts = [
-                f"{datos['marca']} {datos['linea']}",
-                datos["anio"],
+                texto_con_anio,  # Modelo + 4 espacios + AÑO
                 datos["color"],
                 datos["serie"],
                 datos["motor"] if datos["motor"].upper() != "SIN NUMERO" else "",
                 datos["nombre"],
-                f"Expedición: {datos['fecha_exp']}"
-                f"Vencimiento: {datos['fecha_ven']}"
+                f"{datos['fecha_exp'].strftime('%d/%m/%Y')}",
+                f"{datos['fecha_ven'].strftime('%d/%m/%Y')}"
             ]
             
             for text in texts:

@@ -382,6 +382,16 @@ def generar_pdf_ags(datos: dict) -> str:
         print(f"[PDF] Error crítico: {e}")
         raise e
 
+# ===================== ESTADOS DEL BOT =====================
+class PermisoForm(StatesGroup):
+    marca = State()
+    linea = State()
+    anio = State()
+    serie = State()
+    motor = State()
+    color = State()
+    nombre = State()
+
 # ===================== HANDLERS DEL BOT =====================
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message, state: FSMContext):

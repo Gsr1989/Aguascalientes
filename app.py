@@ -270,7 +270,7 @@ def generar_pdf_ags(datos: dict) -> str:
 
             # Coordenadas para texto en plantilla - ACTUALIZADO PARA FOLIO COMPLETO
             coords_ags = {
-                "folio_completo": (1000, 103, 28, (1, 0, 0)),  # Rojo para la A
+                "folio_completo": (950, 103, 28, (1, 0, 0)),  # Rojo para la A
                 "marca": (245, 305, 20, (0, 0, 0)),
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
@@ -298,15 +298,15 @@ def generar_pdf_ags(datos: dict) -> str:
                 # Aproximadamente 15px por carácter dependiendo del tamaño
                 offset_a = tamaño_fuente * 0.6
                 
-                # Insertar "  / 2025 / " en negro
-                pg.insert_text((x_base + offset_a, y), f"  / {año_actual} / ", fontsize=tamaño_fuente, color=(0, 0, 0))
+                # Insertar "  / 2025 / " en rojo
+                pg.insert_text((x_base + offset_a, y), f"  / {año_actual} / ", fontsize=tamaño_fuente, color=(1, 0, 0))
                 
                 # Calcular offset para el folio
                 texto_medio = f"  / {año_actual} / "
                 offset_medio = len(texto_medio) * (tamaño_fuente * 0.6)
                 
-                # Insertar el folio en negro
-                pg.insert_text((x_base + offset_a + offset_medio, y), datos["folio"], fontsize=tamaño_fuente, color=(0, 0, 0))
+                # Insertar el folio en rojo
+                pg.insert_text((x_base + offset_a + offset_medio, y), datos["folio"], fontsize=tamaño_fuente, color=(1, 0, 0))
 
             # Usar la función personalizada para el folio
             insertar_folio_formateado(835, 103, 28)

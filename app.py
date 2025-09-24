@@ -182,6 +182,13 @@ def generar_folio_ags():
         print(f"[FOLIO] Error: {e}")
         return f"{prefijo}{random.randint(10000,99999)}"
 
+def formatear_folio_completo(folio: str) -> str:
+    """
+    Genera el formato completo del folio: A  / 2025 / (folio)
+    """
+    año_actual = datetime.now().year
+    return f"A  / {año_actual} / {folio}"
+
 def generar_qr_simple_ags(folio):
     """Genera QR que apunta al endpoint de consulta"""
     try:
@@ -222,8 +229,12 @@ def renderizar_resultado_consulta(row, vigente=True):
             except:
                 pass
         
+        # Generar folio completo con formato A / 2025 / (folio)
+        folio_completo = formatear_folio_completo(row.get('folio', ''))
+        
         datos = {
             'folio': row.get('folio', ''),
+            'folio_completo': folio_completo,  # NUEVO CAMPO
             'marca': row.get('marca', ''),
             'linea': row.get('linea', ''),
             'anio': row.get('anio', ''),
@@ -233,7 +244,7 @@ def renderizar_resultado_consulta(row, vigente=True):
             'nombre': row.get('contribuyente', ''),
             'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
             'expedicion': fecha_exp,
-            'vencimiento': fecha_ven,  # AGREGADA FECHA DE VENCIMIENTO
+            'vencimiento': fecha_ven,
             'vigente': vigente
         }
         
@@ -244,19 +255,22 @@ def renderizar_resultado_consulta(row, vigente=True):
         return f"<html><body><h1>Error al renderizar template: {e}</h1></body></html>"
 
 def generar_pdf_ags(datos: dict) -> str:
-    """Genera el PDF del permiso con QR"""
+    """Genera el PDF del permiso con QR y formato de folio completo"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
     
     try:
+        # Generar el folio completo con formato
+        folio_completo = formatear_folio_completo(datos["folio"])
+        
         if os.path.exists(PLANTILLA_PDF):
             # Usar plantilla existente
             doc = fitz.open(PLANTILLA_PDF)
             pg = doc[0]
 
-            # Coordenadas para texto en plantilla
+            # Coordenadas para texto en plantilla - ACTUALIZADO PARA FOLIO COMPLETO
             coords_ags = {
-                "folio": (835, 103, 28, (1, 0, 0)),
+                "folio_completo": (1000, 103, 28, (1, 0, 0)),  # Rojo para la A
                 "marca": (245, 305, 20, (0, 0, 0)),
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
@@ -272,7 +286,31 @@ def generar_pdf_ags(datos: dict) -> str:
                 x, y, s, col = coords_ags[key]
                 pg.insert_text((x, y), str(value), fontsize=s, color=col)
 
-            put("folio", datos["folio"])
+            # Insertar el folio completo con formato especial
+            def insertar_folio_formateado(x_base, y, tamaño_fuente):
+                """Inserta el folio con formato A / 2025 / (folio) donde A es roja"""
+                año_actual = datetime.now().year
+                
+                # Insertar "A" en rojo
+                pg.insert_text((x_base, y), "A", fontsize=tamaño_fuente, color=(1, 0, 0))
+                
+                # Calcular posición para el resto del texto
+                # Aproximadamente 15px por carácter dependiendo del tamaño
+                offset_a = tamaño_fuente * 0.6
+                
+                # Insertar "  / 2025 / " en negro
+                pg.insert_text((x_base + offset_a, y), f"  / {año_actual} / ", fontsize=tamaño_fuente, color=(0, 0, 0))
+                
+                # Calcular offset para el folio
+                texto_medio = f"  / {año_actual} / "
+                offset_medio = len(texto_medio) * (tamaño_fuente * 0.6)
+                
+                # Insertar el folio en negro
+                pg.insert_text((x_base + offset_a + offset_medio, y), datos["folio"], fontsize=tamaño_fuente, color=(0, 0, 0))
+
+            # Usar la función personalizada para el folio
+            insertar_folio_formateado(835, 103, 28)
+            
             put("marca", datos["marca"])
             modelo_con_anio = f"{datos['linea']}    AÑO {datos['anio']}"
             pg.insert_text((245, 353), modelo_con_anio, fontsize=20, color=(0, 0, 0))
@@ -287,6 +325,7 @@ def generar_pdf_ags(datos: dict) -> str:
             
             put("fecha_exp_larga", f"{fecha_larga(datos['fecha_exp_dt'])}")
             put("fecha_ven_larga", f"{fecha_larga(datos['fecha_ven_dt'])}")
+            
             # Agregar QR
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
@@ -309,7 +348,10 @@ def generar_pdf_ags(datos: dict) -> str:
             doc = fitz.open()
             page = doc.new_page(width=595, height=842)
             
-            page.insert_text((50, 80), datos["folio"], fontsize=20, color=(1, 0, 0))
+            # Insertar folio completo formateado en PDF básico
+            page.insert_text((50, 80), "A", fontsize=20, color=(1, 0, 0))  # A en rojo
+            año_actual = datetime.now().year
+            page.insert_text((70, 80), f"  / {año_actual} / {datos['folio']}", fontsize=20, color=(0, 0, 0))  # resto en negro
             
             y_pos = 120
             line_height = 25
@@ -321,7 +363,7 @@ def generar_pdf_ags(datos: dict) -> str:
                 datos["serie"],
                 datos["motor"] if datos["motor"].upper() != "SIN NUMERO" else "",
                 datos["nombre"],
-                f"Expedición: {datos['fecha_exp']}"
+                f"Expedición: {datos['fecha_exp']}",
                 f"Vencimiento: {datos['fecha_ven']}"
             ]
             
@@ -378,8 +420,10 @@ async def start_cmd(message: types.Message, state: FSMContext):
 async def permiso_cmd(message: types.Message, state: FSMContext):
     activos = obtener_folios_usuario(message.from_user.id)
     if activos:
+        # Mostrar folios activos con formato completo
+        folios_formateados = [formatear_folio_completo(f) for f in activos]
         await message.answer(
-            f"📋 Folios activos: {', '.join(activos)}\n\n"
+            f"📋 Folios activos: {', '.join(folios_formateados)}\n\n"
             "Paso 1/7: Ingresa la MARCA del vehículo:",
             parse_mode="HTML"
         )
@@ -466,9 +510,12 @@ async def get_nombre(message: types.Message, state: FSMContext):
     datos["fecha_exp_dt"] = hoy
     datos["fecha_ven_dt"] = ven
 
+    # Mostrar folio con formato completo
+    folio_completo = formatear_folio_completo(datos["folio"])
+    
     await message.answer(
         f"🔄 Generando permiso...\n"
-        f"📄 Folio: {datos['folio']}\n"
+        f"📄 Folio: {folio_completo}\n"
         f"👤 Titular: {datos['nombre']}"
     )
 
@@ -476,10 +523,10 @@ async def get_nombre(message: types.Message, state: FSMContext):
         # Generar PDF
         pdf_path = generar_pdf_ags(datos)
 
-        # Enviar PDF al usuario
+        # Enviar PDF al usuario con folio formateado
         await message.answer_document(
             FSInputFile(pdf_path),
-            caption=f"📄 PERMISO DIGITAL – AGUASCALIENTES\nFolio: {datos['folio']}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}"
+            caption=f"📄 PERMISO DIGITAL – AGUASCALIENTES\nFolio: {folio_completo}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}"
         )
 
         # Guardar en Supabase
@@ -505,7 +552,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
 
         await message.answer(
             f"💰 INSTRUCCIONES DE PAGO\n"
-            f"📄 Folio: {datos['folio']}\n"
+            f"📄 Folio: {folio_completo}\n"
             f"💵 Monto: ${PRECIO_PERMISO} MXN\n"
             f"⏰ Tiempo límite: 12 horas\n\n"
             "📸 Envía la foto de tu comprobante aquí mismo.\n"
@@ -536,9 +583,10 @@ async def recibir_comprobante(message: types.Message):
             "fecha_comprobante": now
         }).eq("folio", folio).execute()
 
+    folio_completo = formatear_folio_completo(folio)
     await message.answer(
         f"✅ Comprobante recibido\n"
-        f"📄 Folio: {folio}\n"
+        f"📄 Folio: {folio_completo}\n"
         f"⏹️ Timer detenido."
     )
 
@@ -563,10 +611,11 @@ async def codigo_admin(message: types.Message):
             "fecha_comprobante": now
         }).eq("folio", folio).execute()
 
+    folio_completo = formatear_folio_completo(folio)
     if timer_cancelado:
-        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio}\n⏹️ Timer detenido")
+        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio_completo}\n⏹️ Timer detenido")
     else:
-        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio}\n⚠️ Timer ya estaba inactivo")
+        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio_completo}\n⚠️ Timer ya estaba inactivo")
 
 @dp.message()
 async def fallback(message: types.Message):

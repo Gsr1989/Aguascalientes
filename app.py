@@ -268,9 +268,9 @@ def generar_pdf_ags(datos: dict) -> str:
             doc = fitz.open(PLANTILLA_PDF)
             pg = doc[0]
 
-            # Coordenadas para texto en plantilla - ACTUALIZADO PARA FOLIO COMPLETO
+            # Coordenadas para texto en plantilla
             coords_ags = {
-                "folio_completo": (835, 103, 28, (1, 0, 0)),  # Rojo para la A
+                "folio": (835, 103, 28),  # x, y, tamaño fuente para A/2025/folio
                 "marca": (245, 305, 20, (0, 0, 0)),
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
@@ -286,30 +286,18 @@ def generar_pdf_ags(datos: dict) -> str:
                 x, y, s, col = coords_ags[key]
                 pg.insert_text((x, y), str(value), fontsize=s, color=col)
 
-            # Insertar el folio completo con formato especial
-            def insertar_folio_formateado(x_base, y, tamaño_fuente):
-                """Inserta el folio con formato A / 2025 / (folio) donde A es roja"""
+            # OPCIÓN 1: Insertar todo el folio junto
+            def insertar_folio_formateado():
+                """Inserta el folio con formato A / 2025 / (folio) TODO EN ROJO"""
+                x_base, y, tamaño_fuente = coords_ags["folio"]
                 año_actual = datetime.now().year
                 
-                # Insertar "A" en rojo
-                pg.insert_text((x_base, y), "A", fontsize=tamaño_fuente, color=(1, 0, 0))
-                
-                # Calcular posición para el resto del texto
-                # Aproximadamente 15px por carácter dependiendo del tamaño
-                offset_a = tamaño_fuente * 0.6
-                
-                # Insertar "  / 2025 / " en rojo
-                pg.insert_text((x_base + offset_a, y), f"  / {año_actual} / ", fontsize=tamaño_fuente, color=(1, 0, 0))
-                
-                # Calcular offset para el folio
-                texto_medio = f"  / {año_actual} / "
-                offset_medio = len(texto_medio) * (tamaño_fuente * 0.6)
-                
-                # Insertar el folio en rojo
-                pg.insert_text((x_base + offset_a + offset_medio, y), datos["folio"], fontsize=tamaño_fuente, color=(1, 0, 0))
+                # Todo junto en una sola inserción
+                texto_completo = f"A  / {año_actual} / {datos['folio']}"
+                pg.insert_text((x_base, y), texto_completo, fontsize=tamaño_fuente, color=(1, 0, 0))
 
             # Usar la función personalizada para el folio
-            insertar_folio_formateado(835, 103, 28)
+            insertar_folio_formateado()
             
             put("marca", datos["marca"])
             modelo_con_anio = f"{datos['linea']}    AÑO {datos['anio']}"
@@ -348,10 +336,10 @@ def generar_pdf_ags(datos: dict) -> str:
             doc = fitz.open()
             page = doc.new_page(width=595, height=842)
             
-            # Insertar folio completo formateado en PDF básico
-            page.insert_text((50, 80), "A", fontsize=20, color=(1, 0, 0))  # A en rojo
+            # Insertar folio completo formateado en PDF básico - TODO EN ROJO
             año_actual = datetime.now().year
-            page.insert_text((70, 80), f"  / {año_actual} / {datos['folio']}", fontsize=20, color=(0, 0, 0))  # resto en negro
+            texto_completo = f"A  / {año_actual} / {datos['folio']}"
+            page.insert_text((50, 80), texto_completo, fontsize=20, color=(1, 0, 0))
             
             y_pos = 120
             line_height = 25
@@ -393,16 +381,6 @@ def generar_pdf_ags(datos: dict) -> str:
     except Exception as e:
         print(f"[PDF] Error crítico: {e}")
         raise e
-
-# ===================== ESTADOS DEL BOT =====================
-class PermisoForm(StatesGroup):
-    marca = State()
-    linea = State()
-    anio = State()
-    serie = State()
-    motor = State()
-    color = State()
-    nombre = State()
 
 # ===================== HANDLERS DEL BOT =====================
 @dp.message(Command("start"))

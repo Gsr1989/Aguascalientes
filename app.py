@@ -270,7 +270,7 @@ def generar_pdf_ags(datos: dict) -> str:
 
             # Coordenadas para texto en plantilla - ACTUALIZADO PARA FOLIO COMPLETO
             coords_ags = {
-                "folio_completo": (950, 103, 28, (1, 0, 0)),  # Rojo para la A
+                "folio_completo": (835, 103, 28, (1, 0, 0)),  # Rojo para la A
                 "marca": (245, 305, 20, (0, 0, 0)),
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),

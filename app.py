@@ -301,8 +301,8 @@ def generar_pdf_ags(datos: dict) -> str:
             
             put("marca", datos["marca"])
             
-            # MODIFICACIÓN: Año con 4 espacios antes como ya estaba
-            modelo_con_anio = f"{datos['linea']}    AÑO {datos['anio']}"
+            # MODIFICACIÓN: Año con 8 espacios antes como ya estaba
+            modelo_con_anio = f"{datos['linea']}    AÑO: {datos['anio']}"
             pg.insert_text((245, 353), modelo_con_anio, fontsize=20, color=(0, 0, 0))
             
             put("color", datos["color"])

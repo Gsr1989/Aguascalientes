@@ -300,12 +300,19 @@ def generar_pdf_ags(datos: dict) -> str:
             insertar_folio_formateado()
             
             put("marca", datos["marca"])
+            
+            # MODIFICACIÓN: Año con 4 espacios antes como ya estaba
             modelo_con_anio = f"{datos['linea']}    AÑO {datos['anio']}"
             pg.insert_text((245, 353), modelo_con_anio, fontsize=20, color=(0, 0, 0))
+            
             put("color", datos["color"])
             put("serie", datos["serie"])
-            put("motor", datos["motor"])
-            put("nombre", datos["nombre"])
+            
+            # NUEVA MODIFICACIÓN: Motor + 8 espacios + NOMBRE: + nombre
+            motor_con_nombre = f"{datos['motor']}        NOMBRE: {datos['nombre']}"
+            pg.insert_text((245, 498), motor_con_nombre, fontsize=20, color=(0, 0, 0))
+            
+            # Ya no usamos put("nombre", datos["nombre"]) porque ya está incluido en la línea del motor
             
             ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
             def fecha_larga(dt: datetime) -> str:
@@ -344,13 +351,15 @@ def generar_pdf_ags(datos: dict) -> str:
             y_pos = 120
             line_height = 25
             
+            # MODIFICACIÓN TAMBIÉN EN PDF BÁSICO: Motor con formato
+            motor_con_nombre = f"{datos['motor']}        NOMBRE: {datos['nombre']}" if datos["motor"].upper() != "SIN NUMERO" else f"        NOMBRE: {datos['nombre']}"
+            
             texts = [
                 f"{datos['marca']} {datos['linea']}",
-                datos["anio"],
+                f"    AÑO {datos['anio']}",  # 4 espacios antes del año
                 datos["color"],
                 datos["serie"],
-                datos["motor"] if datos["motor"].upper() != "SIN NUMERO" else "",
-                datos["nombre"],
+                motor_con_nombre,  # Motor con nombre formateado
                 f"Expedición: {datos['fecha_exp']}",
                 f"Vencimiento: {datos['fecha_ven']}"
             ]
@@ -381,7 +390,7 @@ def generar_pdf_ags(datos: dict) -> str:
     except Exception as e:
         print(f"[PDF] Error crítico: {e}")
         raise e
-
+                
 # ===================== ESTADOS DEL BOT =====================
 class PermisoForm(StatesGroup):
     marca = State()

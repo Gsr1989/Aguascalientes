@@ -156,7 +156,7 @@ def limpiar_entrada(texto: str) -> str:
 
 def generar_folio_ags():
     """Genera un nuevo folio único"""
-    prefijo = "129"
+    prefijo = "1210"
     try:
         resp = supabase.table("folios_registrados") \
             .select("folio") \

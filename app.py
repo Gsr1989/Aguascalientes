@@ -176,7 +176,7 @@ def generar_folio_ags():
 
         siguiente = (max(usados) + 1) if usados else 2
         while f"{prefijo}{siguiente}" in existentes:
-            siguiente += 1
+            siguiente += 3
         return f"{prefijo}{siguiente}"
     except Exception as e:
         print(f"[FOLIO] Error: {e}")

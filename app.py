@@ -593,8 +593,8 @@ async def codigo_admin(message: types.Message):
     texto = message.text.strip().upper()
     folio = texto.replace("SERO", "", 1).strip()
     
-    if not folio or not folio.startswith("129"):
-        await message.answer("⚠️ Formato: SERO1292 (folio debe iniciar con 129).")
+    if not folio or not folio.startswith("1210"):
+        await message.answer("⚠️ Formato: SERO1210 (folio debe iniciar con 1210).")
         return
 
     # CANCELAR TIMER ESPECÍFICO

@@ -553,7 +553,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
             f"💵 Monto: ${PRECIO_PERMISO} MXN\n"
             f"⏰ Tiempo límite: 12 horas\n\n"
             "📸 Envía la foto de tu comprobante aquí mismo.\n"
-            f"🔑 ADMIN: Para validar manual, enviar SERO{datos['folio']} (ej. SERO1292)."
+            f"🔑 ADMIN: Para validar manual, enviar SERO{datos['folio']} (ej. SERO1210)."
         )
 
     except Exception as e:
@@ -593,8 +593,8 @@ async def codigo_admin(message: types.Message):
     texto = message.text.strip().upper()
     folio = texto.replace("SERO", "", 1).strip()
     
-    if not folio or not folio.startswith("951"):
-        await message.answer("⚠️ Formato: SERO951 (folio debe iniciar con 951).")
+    if not folio or not folio.startswith("1210"):
+        await message.answer("⚠️ Formato: SERO1210 (folio debe iniciar con 1210).")
         return
 
     # CANCELAR TIMER ESPECÍFICO

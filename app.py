@@ -1,3 +1,4 @@
+¡Aquí está el código completo y actualizado con TODOS los cambios, padrino! 🚀
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -53,9 +54,9 @@ timers_activos = {}  # {folio: {"task": task, "user_id": user_id, "start_time": 
 user_folios = {}     # {user_id: [folio1, folio2, ...]}
 
 async def eliminar_folio_automatico(folio: str):
-    """Elimina el folio de Supabase y limpia los timers después de 12 horas"""
+    """Elimina el folio de Supabase y limpia los timers después de 24 horas"""
     try:
-        print(f"[TIMER] Eliminando folio {folio} por tiempo agotado (12h)")
+        print(f"[TIMER] Eliminando folio {folio} por tiempo agotado (24h)")
         
         # Obtener user_id antes de eliminar
         user_id = timers_activos.get(folio, {}).get("user_id")
@@ -69,7 +70,7 @@ async def eliminar_folio_automatico(folio: str):
             with suppress(Exception):
                 await bot.send_message(
                     user_id,
-                    f"⏰ TIEMPO AGOTADO\n\nEl folio {folio} fue eliminado automáticamente después de 12 horas sin validación.",
+                    f"⏰ TIEMPO AGOTADO\n\nEl folio {folio} fue eliminado automáticamente después de 24 horas sin validación.",
                     parse_mode="HTML"
                 )
         
@@ -80,12 +81,12 @@ async def eliminar_folio_automatico(folio: str):
     finally:
         limpiar_timer_folio(folio)
 
-async def iniciar_timer_12h(user_id: int, folio: str):
-    """Inicia un timer de 12 horas para un folio específico"""
+async def iniciar_timer_24h(user_id: int, folio: str):
+    """Inicia un timer de 24 horas para un folio específico"""
     async def timer_task():
         try:
-            print(f"[TIMER] Timer iniciado para folio {folio} - 12 horas")
-            await asyncio.sleep(12 * 60 * 60)  # 12 horas = 43200 segundos
+            print(f"[TIMER] Timer iniciado para folio {folio} - 24 horas")
+            await asyncio.sleep(24 * 60 * 60)  # 24 horas = 86400 segundos
             
             # Verificar si el timer aún está activo (no fue cancelado)
             if folio in timers_activos:
@@ -106,7 +107,7 @@ async def iniciar_timer_12h(user_id: int, folio: str):
     # Agregar folio a la lista del usuario
     user_folios.setdefault(user_id, []).append(folio)
     
-    print(f"[TIMER] Timer 12h iniciado para folio {folio} (usuario {user_id})")
+    print(f"[TIMER] Timer 24h iniciado para folio {folio} (usuario {user_id})")
 
 def cancelar_timer_folio(folio: str):
     """Cancela el timer de un folio específico (por comando SERO)"""
@@ -155,8 +156,8 @@ def limpiar_entrada(texto: str) -> str:
     return texto_limpio.strip().upper()
 
 def generar_folio_ags():
-    """Genera un nuevo folio único"""
-    prefijo = "1210"
+    """Genera un nuevo folio único con prefijo 654 + sufijo incremental"""
+    prefijo = "654"
     try:
         resp = supabase.table("folios_registrados") \
             .select("folio") \
@@ -174,13 +175,17 @@ def generar_folio_ags():
                 except ValueError:
                     pass
 
-        siguiente = (max(usados) + 1) if usados else 2
+        # Comenzar desde 1 y buscar el siguiente disponible
+        siguiente = (max(usados) + 1) if usados else 1
+        
+        # Buscar folio libre (anti-duplicados)
         while f"{prefijo}{siguiente}" in existentes:
-            siguiente += 3
+            siguiente += 1
+            
         return f"{prefijo}{siguiente}"
     except Exception as e:
         print(f"[FOLIO] Error: {e}")
-        return f"{prefijo}{random.randint(10000,99999)}"
+        return f"{prefijo}{random.randint(1,9999)}"
 
 def formatear_folio_completo(folio: str) -> str:
     """
@@ -272,10 +277,11 @@ def generar_pdf_ags(datos: dict) -> str:
             coords_ags = {
                 "folio": (835, 103, 28),  # x, y, tamaño fuente para A/2025/folio
                 "marca": (245, 305, 20, (0, 0, 0)),
+                "modelo": (245, 353, 20, (0, 0, 0)),  # Solo modelo/línea
+                "anio": (245, 380, 20, (0, 0, 0)),     # AÑO en línea separada
                 "color": (245, 402, 20, (0, 0, 0)),
                 "serie": (245, 450, 20, (0, 0, 0)),
                 "motor": (245, 498, 20, (0, 0, 0)),
-                "nombre": (708, 498, 20, (0, 0, 0)),
                 "fecha_exp_larga": (380, 543, 20, (0, 0, 0)),
                 "fecha_ven_larga": (850, 543, 20, (0, 0, 0)),
             }
@@ -286,7 +292,6 @@ def generar_pdf_ags(datos: dict) -> str:
                 x, y, s, col = coords_ags[key]
                 pg.insert_text((x, y), str(value), fontsize=s, color=col)
 
-            # OPCIÓN 1: Insertar todo el folio junto
             def insertar_folio_formateado():
                 """Inserta el folio con formato A / 2025 / (folio) TODO EN ROJO"""
                 x_base, y, tamaño_fuente = coords_ags["folio"]
@@ -299,27 +304,28 @@ def generar_pdf_ags(datos: dict) -> str:
             # Usar la función personalizada para el folio
             insertar_folio_formateado()
             
-            put("marca", datos["marca"])
+            # MARCA: Nissan (3 espacios) tsuru
+            marca_linea = f"{datos['marca']}   {datos['linea']}"
+            put("marca", marca_linea)
             
-            # MODIFICACIÓN: Año con 8 espacios antes como ya estaba
-            modelo_con_anio = f"{datos['linea']}    AÑO: {datos['anio']}"
-            pg.insert_text((245, 353), modelo_con_anio, fontsize=20, color=(0, 0, 0))
+            # AÑO en línea separada (sin "AÑO:" delante)
+            put("anio", datos['anio'])
             
             put("color", datos["color"])
             put("serie", datos["serie"])
+            put("motor", datos["motor"])
             
-            # NUEVA MODIFICACIÓN: Motor + 8 espacios + NOMBRE: + nombre
-            motor_con_nombre = f"{datos['motor']}        NOMBRE: {datos['nombre']}"
-            pg.insert_text((245, 498), motor_con_nombre, fontsize=20, color=(0, 0, 0))
+            # NOMBRE: YA NO SE IMPRIME EN PDF (se eliminó)
             
-            # Ya no usamos put("nombre", datos["nombre"]) porque ya está incluido en la línea del motor
+            # FECHAS CON FORMATO: dd   /   MES   /   yyyy
+            MESES_MAYUS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
             
-            ABR_MES = ["ene","feb","mar","abr","May","Jun","jul","ago","sep","oct","nov","dic"]
-            def fecha_larga(dt: datetime) -> str:
-                return f"{dt.day:02d} {ABR_MES[dt.month-1]} {dt.year}"
+            def fecha_espaciada(dt: datetime) -> str:
+                mes_texto = MESES_MAYUS[dt.month - 1]
+                return f"{dt.day:02d}   /   {mes_texto}   /   {dt.year}"
             
-            put("fecha_exp_larga", f"{fecha_larga(datos['fecha_exp_dt'])}")
-            put("fecha_ven_larga", f"{fecha_larga(datos['fecha_ven_dt'])}")
+            put("fecha_exp_larga", fecha_espaciada(datos['fecha_exp_dt']))
+            put("fecha_ven_larga", fecha_espaciada(datos['fecha_ven_dt']))
             
             # Agregar QR
             try:
@@ -351,17 +357,26 @@ def generar_pdf_ags(datos: dict) -> str:
             y_pos = 120
             line_height = 25
             
-            # MODIFICACIÓN TAMBIÉN EN PDF BÁSICO: Motor con formato
-            motor_con_nombre = f"{datos['motor']}        NOMBRE: {datos['nombre']}" if datos["motor"].upper() != "SIN NUMERO" else f"        NOMBRE: {datos['nombre']}"
+            # MESES EN MAYÚSCULAS
+            MESES_MAYUS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
+            
+            def fecha_espaciada_basico(fecha_str: str) -> str:
+                try:
+                    dt = datetime.strptime(fecha_str, "%d/%m/%Y")
+                    mes_texto = MESES_MAYUS[dt.month - 1]
+                    return f"{dt.day:02d}   /   {mes_texto}   /   {dt.year}"
+                except:
+                    return fecha_str
             
             texts = [
-                f"{datos['marca']} {datos['linea']}",
-                f"    AÑO {datos['anio']}",  # 4 espacios antes del año
+                f"{datos['marca']}   {datos['linea']}",
+                datos['anio'],  # AÑO en línea separada
                 datos["color"],
                 datos["serie"],
-                motor_con_nombre,  # Motor con nombre formateado
-                f"Expedición: {datos['fecha_exp']}",
-                f"Vencimiento: {datos['fecha_ven']}"
+                datos["motor"],
+                # YA NO SE IMPRIME EL NOMBRE
+                f"Expedición: {fecha_espaciada_basico(datos['fecha_exp'])}",
+                f"Vencimiento: {fecha_espaciada_basico(datos['fecha_ven'])}"
             ]
             
             for text in texts:
@@ -408,7 +423,7 @@ async def start_cmd(message: types.Message, state: FSMContext):
     await message.answer(
         "🏛️ Sistema Digital de Permisos Aguascalientes\n\n"
         f"💰 Costo: ${PRECIO_PERMISO} MXN\n"
-        "⏰ Tiempo límite: 12 horas\n"
+        "⏰ Tiempo límite: 24 horas\n"
         "📋 Use /permiso para iniciar su trámite",
         parse_mode="HTML"
     )
@@ -544,16 +559,16 @@ async def get_nombre(message: types.Message, state: FSMContext):
             "username": message.from_user.username or "Sin username"
         }).execute()
 
-        # INICIAR TIMER DE 12 HORAS
-        await iniciar_timer_12h(message.from_user.id, datos["folio"])
+        # INICIAR TIMER DE 24 HORAS
+        await iniciar_timer_24h(message.from_user.id, datos["folio"])
 
         await message.answer(
             f"💰 INSTRUCCIONES DE PAGO\n"
             f"📄 Folio: {folio_completo}\n"
             f"💵 Monto: ${PRECIO_PERMISO} MXN\n"
-            f"⏰ Tiempo límite: 12 horas\n\n"
+            f"⏰ Tiempo límite: 24 horas\n\n"
             "📸 Envía la foto de tu comprobante aquí mismo.\n"
-            f"🔑 ADMIN: Para validar manual, enviar SERO{datos['folio']} (ej. SERO1210)."
+            f"🔑 ADMIN: Para validar manual, enviar SERO{datos['folio']} (ej. SERO6541)."
         )
 
     except Exception as e:
@@ -589,12 +604,12 @@ async def recibir_comprobante(message: types.Message):
 
 @dp.message(lambda m: m.text and m.text.strip().upper().startswith("SERO"))
 async def codigo_admin(message: types.Message):
-    """Comando SERO + folio para validar manualmente y detener timer"""
+    """Comando SERO + folio para validar manualmente y detener timer (case insensitive)"""
     texto = message.text.strip().upper()
     folio = texto.replace("SERO", "", 1).strip()
     
-    if not folio or not folio.startswith("1210"):
-        await message.answer("⚠️ Formato: SERO1210 (folio debe iniciar con 1210).")
+    if not folio or not folio.startswith("654"):
+        await message.answer("⚠️ Formato: SERO654X (folio debe iniciar con 654). Ejemplos: SERO6541, sero6542")
         return
 
     # CANCELAR TIMER ESPECÍFICO
@@ -622,7 +637,7 @@ async def fallback(message: types.Message):
 async def keep_alive():
     while True:
         await asyncio.sleep(600)
-
+        
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _keep_task
@@ -736,7 +751,7 @@ async def estado_folio(folio: str):
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Página de inicio simple"""
-    return HTMLResponse("""
+    return HTMLResponse(f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -744,30 +759,30 @@ async def root():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body { 
+            body {{ 
                 font-family: Arial, sans-serif; 
                 margin: 0; 
                 padding: 40px; 
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
                 text-align: center;
-            }
-            .container { 
+            }}
+            .container {{ 
                 max-width: 600px; 
                 margin: 0 auto; 
                 background: white; 
                 padding: 40px; 
                 border-radius: 15px; 
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            }
-            h1 { color: #2c3e50; margin-bottom: 30px; }
-            .info { 
+            }}
+            h1 {{ color: #2c3e50; margin-bottom: 30px; }}
+            .info {{ 
                 background: #e8f5e8; 
                 padding: 20px; 
                 border-radius: 10px; 
                 margin: 20px 0; 
                 color: #2d5730;
-            }
+            }}
         </style>
     </head>
     <body>
@@ -780,7 +795,7 @@ async def root():
                 <ul style="text-align: left;">
                     <li><strong>Estado:</strong> ✅ En línea</li>
                     <li><strong>Costo:</strong> $180 MXN</li>
-                    <li><strong>Tiempo límite:</strong> 12 horas</li>
+                    <li><strong>Tiempo límite:</strong> 24 horas</li>
                     <li><strong>Timers activos:</strong> {len(timers_activos)}</li>
                 </ul>
             </div>

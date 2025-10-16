@@ -281,7 +281,7 @@ def generar_pdf_ags(datos: dict) -> str:
                 "color": (245, 402, 25, (0, 0, 0)),
                 "serie": (245, 450, 25, (0, 0, 0)),
                 "motor": (245, 498, 25, (0, 0, 0)),
-                "fecha_exp_larga": (360, 543, 25, (0, 0, 0)),
+                "fecha_exp_larga": (350, 543, 25, (0, 0, 0)),
                 "fecha_ven_larga": (850, 543, 25, (0, 0, 0)),
             }
 

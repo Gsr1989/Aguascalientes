@@ -275,14 +275,14 @@ def generar_pdf_ags(datos: dict) -> str:
             # Coordenadas para texto en plantilla
             coords_ags = {
                 "folio": (835, 103, 28),  # x, y, tamaño fuente para A/2025/folio
-                "marca": (245, 305, 20, (0, 0, 0)),
-                "modelo": (245, 353, 20, (0, 0, 0)),  # Solo modelo/línea
-                "anio": (245, 380, 20, (0, 0, 0)),     # AÑO en línea separada
-                "color": (245, 402, 20, (0, 0, 0)),
-                "serie": (245, 450, 20, (0, 0, 0)),
-                "motor": (245, 498, 20, (0, 0, 0)),
-                "fecha_exp_larga": (380, 543, 20, (0, 0, 0)),
-                "fecha_ven_larga": (850, 543, 20, (0, 0, 0)),
+                "marca": (245, 305, 25, (0, 0, 0)),
+                "modelo": (245, 353, 25, (0, 0, 0)),  # Solo modelo/línea
+                "anio": (245, 365, 25, (0, 0, 0)),     # AÑO en línea separada
+                "color": (245, 402, 25, (0, 0, 0)),
+                "serie": (245, 450, 25, (0, 0, 0)),
+                "motor": (245, 498, 25, (0, 0, 0)),
+                "fecha_exp_larga": (380, 543, 25, (0, 0, 0)),
+                "fecha_ven_larga": (850, 543, 25, (0, 0, 0)),
             }
 
             def put(key, value):

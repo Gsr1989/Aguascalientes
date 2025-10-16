@@ -1,4 +1,3 @@
-¡Aquí está el código completo y actualizado con TODOS los cambios, padrino! 🚀
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles

@@ -10,7 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
-from aiogram.types import FSInputFile, ContentType
+from aiogram.types import FSInputFile, ContentType, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from contextlib import asynccontextmanager, suppress
 import asyncio
 import random
@@ -64,7 +64,7 @@ async def eliminar_folio_automatico(folio: str):
                 user_id,
                 f"⏰ TIEMPO AGOTADO - AGUASCALIENTES\n\n"
                 f"El folio {folio} ha sido eliminado del sistema por no completar el pago en 36 horas.\n\n"
-                f"Para iniciar un nuevo trámite use /chuleta"
+                f"📋 Para generar otro permiso use /chuleta"
             )
         
         limpiar_timer_folio(folio)
@@ -85,7 +85,8 @@ async def enviar_recordatorio(folio: str, minutos_restantes: int):
             f"Folio: {folio}\n"
             f"Tiempo restante: {minutos_restantes} minutos\n"
             f"Monto: ${PRECIO_PERMISO}\n\n"
-            f"📸 Envíe su comprobante de pago (imagen) para validar el trámite."
+            f"📸 Envíe su comprobante de pago (imagen) para validar el trámite.\n\n"
+            f"📋 Para generar otro permiso use /chuleta"
         )
     except Exception as e:
         print(f"Error enviando recordatorio para folio {folio}: {e}")
@@ -179,7 +180,6 @@ def generar_folio_ags():
     max_intentos = 10000
     
     try:
-        # Obtener folios existentes
         resp = supabase.table("folios_registrados") \
             .select("folio") \
             .eq("entidad", ENTIDAD) \
@@ -187,7 +187,6 @@ def generar_folio_ags():
             .execute()
         existentes = {r["folio"] for r in (resp.data or []) if r.get("folio")}
 
-        # Extraer números usados
         usados = []
         for f in existentes:
             if f.startswith(prefijo) and len(f) > len(prefijo):
@@ -197,15 +196,12 @@ def generar_folio_ags():
                 except ValueError:
                     pass
 
-        # Comenzar desde el siguiente disponible
         siguiente = (max(usados) + 1) if usados else 1
         
-        # Buscar folio disponible (anti-duplicados con 10000 intentos)
         for intento in range(max_intentos):
             folio_candidato = f"{prefijo}{siguiente}"
             
             if folio_candidato not in existentes:
-                # Verificación doble en tiempo real
                 verificacion = supabase.table("folios_registrados") \
                     .select("folio") \
                     .eq("folio", folio_candidato) \
@@ -220,7 +216,6 @@ def generar_folio_ags():
             
             siguiente += 1
         
-        # Fallback si agotamos 10000 intentos
         print(f"[FOLIO] FALLBACK después de {max_intentos} intentos")
         return f"{prefijo}{random.randint(50000, 99999)}"
         
@@ -462,9 +457,6 @@ async def chuleta_cmd(message: types.Message, state: FSMContext):
 @dp.message(PermisoForm.marca)
 async def get_marca(message: types.Message, state: FSMContext):
     marca = limpiar_entrada(message.text)
-    if not marca:
-        await message.answer("⚠️ Por favor ingresa una marca válida:")
-        return
     await state.update_data(marca=marca)
     await message.answer("Paso 2/7: Ingresa la LÍNEA/MODELO:")
     await state.set_state(PermisoForm.linea)
@@ -472,9 +464,6 @@ async def get_marca(message: types.Message, state: FSMContext):
 @dp.message(PermisoForm.linea)
 async def get_linea(message: types.Message, state: FSMContext):
     linea = limpiar_entrada(message.text)
-    if not linea:
-        await message.answer("⚠️ Por favor ingresa una línea/modelo válido:")
-        return
     await state.update_data(linea=linea)
     await message.answer("Paso 3/7: Ingresa el AÑO (4 dígitos):")
     await state.set_state(PermisoForm.anio)
@@ -492,9 +481,6 @@ async def get_anio(message: types.Message, state: FSMContext):
 @dp.message(PermisoForm.serie)
 async def get_serie(message: types.Message, state: FSMContext):
     serie = limpiar_entrada(message.text)
-    if not serie:
-        await message.answer("⚠️ Por favor ingresa un número de serie válido:")
-        return
     await state.update_data(serie=serie)
     await message.answer("Paso 5/7: Ingresa el NÚMERO DE MOTOR:")
     await state.set_state(PermisoForm.motor)
@@ -502,9 +488,6 @@ async def get_serie(message: types.Message, state: FSMContext):
 @dp.message(PermisoForm.motor)
 async def get_motor(message: types.Message, state: FSMContext):
     motor = limpiar_entrada(message.text)
-    if not motor:
-        await message.answer("⚠️ Por favor ingresa un número de motor válido:")
-        return
     await state.update_data(motor=motor)
     await message.answer("Paso 6/7: Ingresa el COLOR:")
     await state.set_state(PermisoForm.color)
@@ -512,9 +495,6 @@ async def get_motor(message: types.Message, state: FSMContext):
 @dp.message(PermisoForm.color)
 async def get_color(message: types.Message, state: FSMContext):
     color = limpiar_entrada(message.text)
-    if not color:
-        await message.answer("⚠️ Por favor ingresa un color válido:")
-        return
     await state.update_data(color=color)
     await message.answer("Paso 7/7: Ingresa el NOMBRE COMPLETO del titular:")
     await state.set_state(PermisoForm.nombre)
@@ -523,9 +503,6 @@ async def get_color(message: types.Message, state: FSMContext):
 async def get_nombre(message: types.Message, state: FSMContext):
     datos = await state.get_data()
     nombre = limpiar_entrada(message.text)
-    if not nombre:
-        await message.answer("⚠️ Por favor ingresa un nombre válido:")
-        return
     
     datos["nombre"] = nombre
     datos["folio"] = generar_folio_ags()
@@ -549,9 +526,18 @@ async def get_nombre(message: types.Message, state: FSMContext):
     try:
         pdf_path = generar_pdf_ags(datos)
 
+        # BOTONES INLINE
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔑 Validar Admin", callback_data=f"validar_{datos['folio']}"),
+                InlineKeyboardButton(text="⏹️ Detener Timer", callback_data=f"detener_{datos['folio']}")
+            ]
+        ])
+
         await message.answer_document(
             FSInputFile(pdf_path),
-            caption=f"📄 PERMISO DIGITAL – AGUASCALIENTES\nFolio: {folio_completo}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}"
+            caption=f"📄 PERMISO DIGITAL – AGUASCALIENTES\nFolio: {folio_completo}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}\n\n⏰ TIMER ACTIVO (36 horas)",
+            reply_markup=keyboard
         )
 
         supabase.table("folios_registrados").insert({
@@ -584,16 +570,83 @@ async def get_nombre(message: types.Message, state: FSMContext):
         )
 
     except Exception as e:
-        await message.answer(f"❌ ERROR: {e}\n\nIntenta de nuevo con /chuleta")
+        await message.answer(f"❌ ERROR: {e}\n\n📋 Para generar otro permiso use /chuleta")
     finally:
         await state.clear()
+
+# ------------ CALLBACK HANDLERS (BOTONES) ------------
+@dp.callback_query(lambda c: c.data and c.data.startswith("validar_"))
+async def callback_validar_admin(callback: CallbackQuery):
+    folio = callback.data.replace("validar_", "")
+    
+    if not folio.startswith("654"):
+        await callback.answer("❌ Folio inválido", show_alert=True)
+        return
+    
+    if folio in timers_activos:
+        user_con_folio = timers_activos[folio]["user_id"]
+        cancelar_timer_folio(folio)
+        
+        try:
+            now = datetime.now().isoformat()
+            supabase.table("folios_registrados").update({
+                "estado": "VALIDADO_ADMIN",
+                "fecha_comprobante": now
+            }).eq("folio", folio).execute()
+        except Exception as e:
+            print(f"Error actualizando BD para folio {folio}: {e}")
+        
+        await callback.answer("✅ Folio validado por administración", show_alert=True)
+        await callback.message.edit_reply_markup(reply_markup=None)
+        
+        try:
+            folio_completo = formatear_folio_completo(folio)
+            await bot.send_message(
+                user_con_folio,
+                f"✅ PAGO VALIDADO POR ADMINISTRACIÓN - AGUASCALIENTES\n"
+                f"📄 Folio: {folio_completo}\n"
+                f"Tu permiso está activo para circular.\n\n"
+                f"📋 Para generar otro permiso use /chuleta"
+            )
+        except Exception as e:
+            print(f"Error notificando al usuario {user_con_folio}: {e}")
+    else:
+        await callback.answer("❌ Folio no encontrado en timers activos", show_alert=True)
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("detener_"))
+async def callback_detener_timer(callback: CallbackQuery):
+    folio = callback.data.replace("detener_", "")
+    
+    if folio in timers_activos:
+        cancelar_timer_folio(folio)
+        
+        try:
+            supabase.table("folios_registrados").update({
+                "estado": "TIMER_DETENIDO",
+                "fecha_detencion": datetime.now().isoformat()
+            }).eq("folio", folio).execute()
+        except Exception as e:
+            print(f"Error actualizando BD para folio {folio}: {e}")
+        
+        await callback.answer("⏹️ Timer detenido exitosamente", show_alert=True)
+        await callback.message.edit_reply_markup(reply_markup=None)
+        
+        folio_completo = formatear_folio_completo(folio)
+        await callback.message.answer(
+            f"⏹️ TIMER DETENIDO\n\n"
+            f"📄 Folio: {folio_completo}\n"
+            f"El timer de eliminación automática ha sido detenido.\n\n"
+            f"📋 Para generar otro permiso use /chuleta"
+        )
+    else:
+        await callback.answer("❌ Timer ya no está activo", show_alert=True)
 
 @dp.message(lambda m: m.content_type == ContentType.PHOTO)
 async def recibir_comprobante(message: types.Message):
     user_id = message.from_user.id
     folios = obtener_folios_usuario(user_id)
     if not folios:
-        await message.answer("ℹ️ No tienes folios pendientes. Usa /chuleta para iniciar uno nuevo.")
+        await message.answer("ℹ️ No tienes folios pendientes.\n\n📋 Para generar otro permiso use /chuleta")
         return
     
     if len(folios) > 1:
@@ -601,7 +654,8 @@ async def recibir_comprobante(message: types.Message):
         await message.answer(
             f"📄 MÚLTIPLES FOLIOS ACTIVOS\n\n"
             f"Tienes {len(folios)} folios pendientes:\n{lista_folios}\n\n"
-            f"Responde con el NÚMERO DE FOLIO para este comprobante."
+            f"Responde con el NÚMERO DE FOLIO para este comprobante.\n\n"
+            f"📋 Para generar otro permiso use /chuleta"
         )
         return
     
@@ -630,7 +684,7 @@ async def codigo_admin(message: types.Message):
     folio = texto.replace("SERO", "", 1).strip()
     
     if not folio or not folio.startswith("654"):
-        await message.answer("⚠️ Formato: SERO654X (folio debe iniciar con 654). Ejemplos: SERO6541, sero6542")
+        await message.answer("⚠️ Formato: SERO654X (folio debe iniciar con 654).\n\n📋 Para generar otro permiso use /chuleta")
         return
 
     timer_cancelado = cancelar_timer_folio(folio)
@@ -644,9 +698,9 @@ async def codigo_admin(message: types.Message):
 
     folio_completo = formatear_folio_completo(folio)
     if timer_cancelado:
-        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio_completo}\n⏹️ Timer detenido")
+        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio_completo}\n⏹️ Timer detenido\n\n📋 Para generar otro permiso use /chuleta")
     else:
-        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio_completo}\n⚠️ Timer ya estaba inactivo")
+        await message.answer(f"✅ Validación admin exitosa\n📄 Folio: {folio_completo}\n⚠️ Timer ya estaba inactivo\n\n📋 Para generar otro permiso use /chuleta")
 
 @dp.message(Command("folios"))
 async def ver_folios_activos(message: types.Message):
@@ -656,8 +710,8 @@ async def ver_folios_activos(message: types.Message):
     if not folios_usuario:
         await message.answer(
             "ℹ️ NO HAY FOLIOS ACTIVOS\n\n"
-            "No tienes folios pendientes de pago.\n"
-            "Para nuevo permiso use /chuleta"
+            "No tienes folios pendientes de pago.\n\n"
+            "📋 Para generar otro permiso use /chuleta"
         )
         return
     
@@ -678,7 +732,8 @@ async def ver_folios_activos(message: types.Message):
         f"📋 FOLIOS AGUASCALIENTES ACTIVOS ({len(folios_usuario)})\n\n"
         + '\n'.join(lista_folios) +
         f"\n\n⏰ Cada folio tiene timer de 36 horas.\n"
-        f"📸 Para enviar comprobante, use imagen."
+        f"📸 Para enviar comprobante, use imagen.\n\n"
+        f"📋 Para generar otro permiso use /chuleta"
     )
 
 @dp.message()
@@ -695,7 +750,7 @@ async def lifespan(app: FastAPI):
     global _keep_task
     await bot.delete_webhook(drop_pending_updates=True)
     webhook_url = f"{BASE_URL}/webhook"
-    await bot.set_webhook(webhook_url, allowed_updates=["message"])
+    await bot.set_webhook(webhook_url, allowed_updates=["message", "callback_query"])
     _keep_task = asyncio.create_task(keep_alive())
     print(f"[WEBHOOK] {webhook_url}")
     yield
@@ -705,7 +760,7 @@ async def lifespan(app: FastAPI):
             await _keep_task
     await bot.session.close()
 
-app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="3.0.0")
+app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="4.0.0")
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -840,11 +895,11 @@ async def root():
                 <h3>📊 Estado del Sistema</h3>
                 <ul style="text-align: left;">
                     <li><strong>Estado:</strong> ✅ En línea</li>
-                    <li><strong>Versión:</strong> 3.0 - Timer 36h + /chuleta</li>
+                    <li><strong>Versión:</strong> 4.0 - Botones Inline + /chuleta selectivo</li>
                     <li><strong>Costo:</strong> ${PRECIO_PERMISO} MXN</li>
                     <li><strong>Tiempo límite:</strong> 36 horas</li>
                     <li><strong>Timers activos:</strong> {len(timers_activos)}</li>
-                    <li><strong>Comando secreto:</strong> /chuleta</li>
+                    <li><strong>Comando secreto:</strong> /chuleta (selectivo)</li>
                 </ul>
             </div>
             
@@ -866,7 +921,7 @@ async def health_check():
         return {
             "status": "healthy",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "version": "3.0 - Timer 36h + SERO + /chuleta",
+            "version": "4.0 - Botones Inline + /chuleta selectivo",
             "services": {
                 "database": db_status,
                 "telegram_bot": bot_status,
@@ -883,9 +938,10 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes v3.0...")
+    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes v4.0...")
     print(f"[SISTEMA] Base URL: {BASE_URL}")
     print(f"[SISTEMA] Timer: 36 horas con avisos 90/60/30/10")
-    print(f"[SISTEMA] Comando secreto: /chuleta")
+    print(f"[SISTEMA] Comando secreto: /chuleta (selectivo)")
     print(f"[SISTEMA] Anti-duplicados: 10000 intentos máximo")
+    print(f"[SISTEMA] Botones inline: ACTIVOS")
     uvicorn.run(app, host="0.0.0.0", port=8000)

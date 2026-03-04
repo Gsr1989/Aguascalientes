@@ -224,7 +224,7 @@ def generar_folio_ags():
         return f"{prefijo}{random.randint(1, 9999)}"
 
 def formatear_folio_completo(folio: str) -> str:
-    """Genera el formato completo del folio: A  / 2025 / (folio)"""
+    """Genera el formato completo del folio: AGS  / (folio) / 2026"""
     año_actual = datetime.now().year
     return f"A  / {año_actual} / {folio}"
 

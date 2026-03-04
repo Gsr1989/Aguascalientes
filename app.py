@@ -226,7 +226,7 @@ def generar_folio_ags():
 def formatear_folio_completo(folio: str) -> str:
     """Genera el formato completo del folio: AGS  / (folio) / 2026"""
     año_actual = datetime.now().year
-    return f"A  / {año_actual} / {folio}"
+    return f"AGS  / {folio} / {año_actual}"
 
 def generar_qr_simple_ags(folio):
     """Genera QR que apunta al endpoint de consulta"""

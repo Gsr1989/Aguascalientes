@@ -323,7 +323,7 @@ def generar_pdf_ags(datos: dict) -> str:
             def insertar_folio_formateado():
                 x_base, y, tamaño_fuente = coords_ags["folio"]
                 año_actual = datetime.now().year
-                texto_completo = f"A  / {año_actual} / {datos['folio']}"
+                texto_completo = f"A  / {datos['folio']} / {año_actual}"
                 pg.insert_text((x_base, y), texto_completo, fontsize=tamaño_fuente, color=(1, 0, 0))
 
             insertar_folio_formateado()

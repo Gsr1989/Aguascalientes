@@ -446,14 +446,14 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
             # COORDENADAS DEL RECIBO (ajusta después tú)
             coords_recibo = {
                 "recibo_ingreso_1": (469, 62, 10, (0, 0, 0)),  # Primera aparición
-                "recibo_ingreso_2": (462, 760, 8, (0, 0, 0)),  # Segunda aparición
+                "recibo_ingreso_2": (462, 771, 8, (0, 0, 0)),  # Segunda aparición
                 "serie_folio": (469, 70, 7, (0, 0, 0)),       # Últimos 4 de serie + folio
-                "pase_caja": (469, 84, 8, (0, 0, 0)),         # Pase a caja
-                "fecha_hora": (469, 94, 7, (0, 0, 0)),        # Fecha y hora
+                "pase_caja": (469, 83, 8, (0, 0, 0)),         # Pase a caja
+                "fecha_hora": (469, 92, 7, (0, 0, 0)),        # Fecha y hora
                 "rfc": (70, 165, 8, (0, 0, 0)),               # RFC
-                "nombre": (70, 177, 8, (0, 0, 0)),            # Nombre
-                "numero_1": (142, 291, 5, (0, 0, 0)),          # Primer número
-                "numero_2": (182, 291, 5, (0, 0, 0)),          # Segundo número
+                "nombre": (70, 178, 8, (0, 0, 0)),            # Nombre
+                "numero_1": (149, 291, 5, (0, 0, 0)),          # Primer número
+                "numero_2": (190, 291, 5, (0, 0, 0)),          # Segundo número
             }
             
             # Insertar recibo de ingreso (NEGRITA solo el primero)

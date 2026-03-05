@@ -430,12 +430,12 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
                     # 📍 COORDENADAS DEL QR (EDITA ESTOS VALORES)
                     # qr_x: Mover IZQUIERDA (menor número) o DERECHA (mayor número)
                     # qr_y: Mover ARRIBA (menor número) o ABAJO (mayor número)
-                    qr_x = 990  # ← Cambia este número para mover HORIZONTAL
-                    qr_y = 137  # ← Cambia este número para mover VERTICAL (número menor = más arriba)
+                    qr_x = 985  # ← Cambia este número para mover HORIZONTAL
+                    qr_y = 134  # ← Cambia este número para mover VERTICAL (número menor = más arriba)
                     
                     # 📏 TAMAÑO DEL QR (EDITA ESTE VALOR)
                     # qr_width/qr_height: Número mayor = QR más grande, número menor = QR más chico
-                    qr_width = qr_height = 126.5  # ← Cambia este número para TAMAÑO (126.5 = 10% más grande que 115)
+                    qr_width = qr_height = 138  # ← Cambia este número para TAMAÑO (126.5 = 10% más grande que 115)
                     # Ejemplos:
                     # 115 = tamaño original
                     # 126.5 = 10% más grande

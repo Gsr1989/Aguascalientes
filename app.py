@@ -28,6 +28,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 BASE_URL = "https://aguascalientes-gob-mx-ui-ciudadano.onrender.com"
 OUTPUT_DIR = "documentos"
 PLANTILLA_PDF = "DIGITAL_AGUASCALIENTES.pdf"
+PLANTILLA_RECIBO = "Recibo-aguascalientes.pdf"
 ENTIDAD = "ags"
 PRECIO_PERMISO = 180
 TZ = os.getenv("TZ", "America/Mexico_City")
@@ -44,6 +45,57 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
+
+# ===================== SISTEMA DE CONSECUTIVOS =====================
+CONSECUTIVOS_INICIALES = {
+    "recibo_ingreso": 403202608800627,
+    "pase_caja": 9000002373220,
+    "numero_1": 93161700,
+    "numero_2": 47101510
+}
+
+def obtener_siguiente_consecutivo(tipo: str) -> int:
+    """Obtiene el siguiente consecutivo de Supabase con reintentos anti-duplicación"""
+    max_intentos = 1000
+    
+    for intento in range(max_intentos):
+        try:
+            # Obtener el último consecutivo usado
+            resp = supabase.table("consecutivos_ags") \
+                .select("valor") \
+                .eq("tipo", tipo) \
+                .order("valor", desc=True) \
+                .limit(1) \
+                .execute()
+            
+            if resp.data and len(resp.data) > 0:
+                ultimo_valor = int(resp.data[0]["valor"])
+                siguiente = ultimo_valor + 1
+            else:
+                siguiente = CONSECUTIVOS_INICIALES[tipo]
+            
+            # Intentar insertar el nuevo consecutivo
+            supabase.table("consecutivos_ags").insert({
+                "tipo": tipo,
+                "valor": siguiente,
+                "created_at": datetime.now(ZoneInfo(TZ)).isoformat()
+            }).execute()
+            
+            print(f"[CONSECUTIVO] {tipo}: {siguiente} (intento {intento + 1})")
+            return siguiente
+            
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "duplicate" in error_msg or "unique" in error_msg:
+                print(f"[CONSECUTIVO] {tipo} duplicado en intento {intento + 1}, reintentando...")
+                continue
+            else:
+                print(f"[CONSECUTIVO] Error en {tipo}: {e}")
+                raise e
+    
+    # Fallback después de todos los intentos
+    print(f"[CONSECUTIVO] FALLBACK para {tipo} después de {max_intentos} intentos")
+    return CONSECUTIVOS_INICIALES[tipo] + random.randint(1000, 9999)
 
 # ===================== SISTEMA DE TIMERS - 36 HORAS =====================
 timers_activos = {}
@@ -290,17 +342,37 @@ def renderizar_resultado_consulta(row, vigente=True):
         print(f"[TEMPLATE] Error renderizando: {e}")
         return f"<html><body><h1>Error al renderizar template: {e}</h1></body></html>"
 
-def generar_pdf_ags(datos: dict) -> str:
-    """Genera el PDF del permiso con QR y formato de folio completo"""
+def generar_pdf_unificado_ags(datos: dict) -> str:
+    """Genera PDF unificado: PERMISO (página 1) + RECIBO (página 2)"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
     
     try:
+        # ===== GENERAR CONSECUTIVOS =====
+        recibo_ingreso = obtener_siguiente_consecutivo("recibo_ingreso")
+        pase_caja = obtener_siguiente_consecutivo("pase_caja")
+        numero_1 = obtener_siguiente_consecutivo("numero_1")
+        numero_2 = obtener_siguiente_consecutivo("numero_2")
+        
+        # ===== EXTRAER ÚLTIMOS 4 DÍGITOS DE SERIE =====
+        serie_completa = datos["serie"]
+        ultimos_4_serie = serie_completa[-4:] if len(serie_completa) >= 4 else serie_completa
+        
+        # ===== FORMATO FECHA/HORA =====
+        fecha_hora_dt = datos['fecha_exp_dt']
+        # Formato: 04/03/2026 10:20 p. m.
+        hora_formateada = fecha_hora_dt.strftime("%I:%M %p").lower().replace("am", "a. m.").replace("pm", "p. m.")
+        fecha_hora_completa = f"{fecha_hora_dt.strftime('%d/%m/%Y')} {hora_formateada}"
+        
+        # ===== RFC GENÉRICO =====
+        rfc_generico = "XAXX010101000"
+        
         folio_completo = formatear_folio_completo(datos["folio"])
         
+        # ===== PÁGINA 1: PERMISO =====
         if os.path.exists(PLANTILLA_PDF):
-            doc = fitz.open(PLANTILLA_PDF)
-            pg = doc[0]
+            doc_permiso = fitz.open(PLANTILLA_PDF)
+            pg_permiso = doc_permiso[0]
 
             coords_ags = {
                 "folio": (835, 103, 30),
@@ -318,13 +390,13 @@ def generar_pdf_ags(datos: dict) -> str:
                 if key not in coords_ags:
                     return
                 x, y, s, col = coords_ags[key]
-                pg.insert_text((x, y), str(value), fontsize=s, color=col)
+                pg_permiso.insert_text((x, y), str(value), fontsize=s, color=col)
 
             def insertar_folio_formateado():
                 x_base, y, tamaño_fuente = coords_ags["folio"]
                 año_actual = datetime.now().year
                 texto_completo = f"A  / {datos['folio']} / {año_actual}"
-                pg.insert_text((x_base, y), texto_completo, fontsize=tamaño_fuente, color=(1, 0, 0))
+                pg_permiso.insert_text((x_base, y), texto_completo, fontsize=tamaño_fuente, color=(1, 0, 0))
 
             insertar_folio_formateado()
             
@@ -344,6 +416,7 @@ def generar_pdf_ags(datos: dict) -> str:
             put("fecha_exp_larga", fecha_espaciada(datos['fecha_exp_dt']))
             put("fecha_ven_larga", fecha_espaciada(datos['fecha_ven_dt']))
             
+            # QR en permiso
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
@@ -356,67 +429,92 @@ def generar_pdf_ags(datos: dict) -> str:
                     qr_width = qr_height = 115
                     
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
-                    pg.insert_image(rect, pixmap=qr_pix, overlay=True)
+                    pg_permiso.insert_image(rect, pixmap=qr_pix, overlay=True)
             except Exception as e:
                 print(f"[PDF] Error agregando QR: {e}")
-
         else:
-            doc = fitz.open()
-            page = doc.new_page(width=595, height=842)
+            # Plantilla básica si no existe
+            doc_permiso = fitz.open()
+            pg_permiso = doc_permiso.new_page(width=595, height=842)
+            pg_permiso.insert_text((50, 50), "PERMISO AGUASCALIENTES (Plantilla no encontrada)", fontsize=20)
+        
+        # ===== PÁGINA 2: RECIBO =====
+        if os.path.exists(PLANTILLA_RECIBO):
+            doc_recibo = fitz.open(PLANTILLA_RECIBO)
+            pg_recibo = doc_recibo[0]
             
-            año_actual = datetime.now().year
-            texto_completo = f"A  / {año_actual} / {datos['folio']}"
-            page.insert_text((50, 80), texto_completo, fontsize=20, color=(1, 0, 0))
+            # COORDENADAS DEL RECIBO (ajusta después tú)
+            coords_recibo = {
+                "recibo_ingreso_1": (100, 100, 16, (0, 0, 0)),  # Primera aparición
+                "recibo_ingreso_2": (400, 100, 14, (0, 0, 0)),  # Segunda aparición
+                "serie_folio": (100, 150, 12, (0, 0, 0)),       # Últimos 4 de serie + folio
+                "pase_caja": (100, 200, 12, (0, 0, 0)),         # Pase a caja
+                "fecha_hora": (100, 250, 12, (0, 0, 0)),        # Fecha y hora
+                "rfc": (100, 300, 12, (0, 0, 0)),               # RFC
+                "nombre": (100, 350, 12, (0, 0, 0)),            # Nombre
+                "numero_1": (100, 400, 12, (0, 0, 0)),          # Primer número
+                "numero_2": (350, 400, 12, (0, 0, 0)),          # Segundo número
+            }
             
-            y_pos = 120
-            line_height = 25
+            # Insertar recibo de ingreso (NEGRITA solo el primero)
+            x1, y1, s1, col1 = coords_recibo["recibo_ingreso_1"]
+            pg_recibo.insert_text((x1, y1), str(recibo_ingreso), fontsize=s1, color=col1, fontname="hebo")  # BOLD
             
-            MESES_MAYUS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
+            x2, y2, s2, col2 = coords_recibo["recibo_ingreso_2"]
+            pg_recibo.insert_text((x2, y2), str(recibo_ingreso), fontsize=s2, color=col2)
             
-            def fecha_espaciada_basico(fecha_str: str) -> str:
-                try:
-                    dt = datetime.strptime(fecha_str, "%d/%m/%Y")
-                    mes_texto = MESES_MAYUS[dt.month - 1]
-                    return f"{dt.day:02d}   /   {mes_texto}   /   {dt.year}"
-                except:
-                    return fecha_str
+            # Serie y folio
+            serie_folio_texto = f"{ultimos_4_serie}  {datos['folio']}"
+            x, y, s, col = coords_recibo["serie_folio"]
+            pg_recibo.insert_text((x, y), serie_folio_texto, fontsize=s, color=col)
             
-            texts = [
-                f"{datos['marca']}   {datos['linea']}",
-                datos['anio'],
-                datos["color"],
-                datos["serie"],
-                datos["motor"],
-                f"Expedición: {fecha_espaciada_basico(datos['fecha_exp'])}",
-                f"Vencimiento: {fecha_espaciada_basico(datos['fecha_ven'])}"
-            ]
+            # Pase a caja
+            x, y, s, col = coords_recibo["pase_caja"]
+            pg_recibo.insert_text((x, y), str(pase_caja), fontsize=s, color=col)
             
-            for text in texts:
-                if text:
-                    page.insert_text((50, y_pos), text, fontsize=12, color=(0, 0, 0))
-                    y_pos += line_height
+            # Fecha y hora
+            x, y, s, col = coords_recibo["fecha_hora"]
+            pg_recibo.insert_text((x, y), fecha_hora_completa, fontsize=s, color=col)
             
-            try:
-                img_qr = generar_qr_simple_ags(datos["folio"])
-                if img_qr:
-                    buf = BytesIO()
-                    img_qr.save(buf, format="PNG")
-                    buf.seek(0)
-                    qr_pix = fitz.Pixmap(buf.read())
-                    
-                    rect = fitz.Rect(400, 100, 515, 215)
-                    page.insert_image(rect, pixmap=qr_pix, overlay=True)
-            except Exception as e:
-                print(f"[PDF] Error QR en PDF básico: {e}")
-
-        doc.save(out)
-        doc.close()
+            # RFC
+            x, y, s, col = coords_recibo["rfc"]
+            pg_recibo.insert_text((x, y), rfc_generico, fontsize=s, color=col)
+            
+            # Nombre
+            x, y, s, col = coords_recibo["nombre"]
+            pg_recibo.insert_text((x, y), datos["nombre"], fontsize=s, color=col)
+            
+            # Números finales
+            x1, y1, s1, col1 = coords_recibo["numero_1"]
+            pg_recibo.insert_text((x1, y1), str(numero_1), fontsize=s1, color=col1)
+            
+            x2, y2, s2, col2 = coords_recibo["numero_2"]
+            pg_recibo.insert_text((x2, y2), str(numero_2), fontsize=s2, color=col2)
+        else:
+            # Plantilla básica si no existe
+            doc_recibo = fitz.open()
+            pg_recibo = doc_recibo.new_page(width=595, height=842)
+            pg_recibo.insert_text((50, 50), "RECIBO DE PAGO (Plantilla no encontrada)", fontsize=20)
+        
+        # ===== UNIFICAR PDFS =====
+        doc_final = fitz.open()
+        doc_final.insert_pdf(doc_permiso)  # Página 1: Permiso
+        doc_final.insert_pdf(doc_recibo)   # Página 2: Recibo
+        doc_final.save(out)
+        
+        # Cerrar documentos
+        doc_final.close()
+        doc_permiso.close()
+        if os.path.exists(PLANTILLA_RECIBO):
+            doc_recibo.close()
+        
+        print(f"[PDF] ✅ Unificado generado: {out}")
         return out
         
     except Exception as e:
         print(f"[PDF] Error crítico: {e}")
         raise e
-                
+
 # ===================== ESTADOS DEL BOT =====================
 class PermisoForm(StatesGroup):
     marca = State()
@@ -524,7 +622,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
     )
 
     try:
-        pdf_path = generar_pdf_ags(datos)
+        pdf_path = generar_pdf_unificado_ags(datos)
 
         # BOTONES INLINE
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -536,7 +634,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
 
         await message.answer_document(
             FSInputFile(pdf_path),
-            caption=f"📄 PERMISO DIGITAL – AGUASCALIENTES\nFolio: {folio_completo}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}\n\n⏰ TIMER ACTIVO (36 horas)",
+            caption=f"📄 PERMISO + RECIBO – AGUASCALIENTES\nFolio: {folio_completo}\nExpedición: {datos['fecha_exp']}\nVencimiento: {datos['fecha_ven']}\n\n⏰ TIMER ACTIVO (36 horas)",
             reply_markup=keyboard
         )
 
@@ -760,7 +858,7 @@ async def lifespan(app: FastAPI):
             await _keep_task
     await bot.session.close()
 
-app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="4.0.0")
+app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="5.0.0")
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -895,11 +993,10 @@ async def root():
                 <h3>📊 Estado del Sistema</h3>
                 <ul style="text-align: left;">
                     <li><strong>Estado:</strong> ✅ En línea</li>
-                    <li><strong>Versión:</strong> 4.0 - Botones Inline + /chuleta selectivo</li>
+                    <li><strong>Versión:</strong> 5.0 - PDF Unificado + Recibo</li>
                     <li><strong>Costo:</strong> ${PRECIO_PERMISO} MXN</li>
                     <li><strong>Tiempo límite:</strong> 36 horas</li>
                     <li><strong>Timers activos:</strong> {len(timers_activos)}</li>
-                    <li><strong>Comando secreto:</strong> /chuleta (selectivo)</li>
                 </ul>
             </div>
             
@@ -921,7 +1018,7 @@ async def health_check():
         return {
             "status": "healthy",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "version": "4.0 - Botones Inline + /chuleta selectivo",
+            "version": "5.0 - PDF Unificado + Recibo",
             "services": {
                 "database": db_status,
                 "telegram_bot": bot_status,
@@ -938,10 +1035,8 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes v4.0...")
+    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes v5.0...")
     print(f"[SISTEMA] Base URL: {BASE_URL}")
-    print(f"[SISTEMA] Timer: 36 horas con avisos 90/60/30/10")
-    print(f"[SISTEMA] Comando secreto: /chuleta (selectivo)")
-    print(f"[SISTEMA] Anti-duplicados: 10000 intentos máximo")
-    print(f"[SISTEMA] Botones inline: ACTIVOS")
+    print(f"[SISTEMA] PDF UNIFICADO: Permiso + Recibo")
+    print(f"[SISTEMA] Consecutivos: ACTIVOS")
     uvicorn.run(app, host="0.0.0.0", port=8000)

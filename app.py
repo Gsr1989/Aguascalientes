@@ -469,7 +469,7 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
                 "recibo_ingreso_2": (462, 771, 8, (0, 0, 0)),  # Segunda aparición
                 "serie_folio": (469, 70, 7, (0, 0, 0)),       # Últimos 4 de serie + folio
                 "pase_caja": (469, 83, 8, (0, 0, 0)),         # Pase a caja
-                "fecha_hora": (469, 92, 7, (0, 0, 0)),        # Fecha y hora
+                "fecha_hora": (469, 93, 7, (0, 0, 0)),        # Fecha y hora
                 "rfc": (70, 165, 8, (0, 0, 0)),               # RFC
                 "nombre": (70, 178, 8, (0, 0, 0)),            # Nombre
                 "numero_1": (149, 291, 5, (0, 0, 0)),          # Primer número

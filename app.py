@@ -395,7 +395,7 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
             def insertar_folio_formateado():
                 x_base, y, tamaño_fuente = coords_ags["folio"]
                 año_actual = datetime.now().year
-                texto_completo = f"A  / {datos['folio']} / {año_actual}"
+                texto_completo = f"AGS  / {datos['folio']} / {año_actual}"
                 pg_permiso.insert_text((x_base, y), texto_completo, fontsize=tamaño_fuente, color=(1, 0, 0))
 
             insertar_folio_formateado()
@@ -416,7 +416,9 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
             put("fecha_exp_larga", fecha_espaciada(datos['fecha_exp_dt']))
             put("fecha_ven_larga", fecha_espaciada(datos['fecha_ven_dt']))
             
-            # QR en permiso
+            # ========================================
+            # 🔧 AJUSTES DEL QR - EDITA AQUÍ
+            # ========================================
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
@@ -425,13 +427,29 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    qr_x, qr_y = 990, 140
-                    qr_width = qr_height = 115
+                    # 📍 COORDENADAS DEL QR (EDITA ESTOS VALORES)
+                    # qr_x: Mover IZQUIERDA (menor número) o DERECHA (mayor número)
+                    # qr_y: Mover ARRIBA (menor número) o ABAJO (mayor número)
+                    qr_x = 990  # ← Cambia este número para mover HORIZONTAL
+                    qr_y = 137  # ← Cambia este número para mover VERTICAL (número menor = más arriba)
+                    
+                    # 📏 TAMAÑO DEL QR (EDITA ESTE VALOR)
+                    # qr_width/qr_height: Número mayor = QR más grande, número menor = QR más chico
+                    qr_width = qr_height = 126.5  # ← Cambia este número para TAMAÑO (126.5 = 10% más grande que 115)
+                    # Ejemplos:
+                    # 115 = tamaño original
+                    # 126.5 = 10% más grande
+                    # 138 = 20% más grande
+                    # 103.5 = 10% más chico
                     
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
                     pg_permiso.insert_image(rect, pixmap=qr_pix, overlay=True)
             except Exception as e:
                 print(f"[PDF] Error agregando QR: {e}")
+            # ========================================
+            # FIN AJUSTES DEL QR
+            # ========================================
+            
         else:
             # Plantilla básica si no existe
             doc_permiso = fitz.open()
@@ -443,7 +461,9 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
             doc_recibo = fitz.open(PLANTILLA_RECIBO)
             pg_recibo = doc_recibo[0]
             
-            # COORDENADAS DEL RECIBO (ajusta después tú)
+            # ========================================
+            # 📍 COORDENADAS DEL RECIBO - NO TOCAR
+            # ========================================
             coords_recibo = {
                 "recibo_ingreso_1": (469, 62, 10, (0, 0, 0)),  # Primera aparición
                 "recibo_ingreso_2": (462, 771, 8, (0, 0, 0)),  # Segunda aparición
@@ -455,6 +475,7 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
                 "numero_1": (149, 291, 5, (0, 0, 0)),          # Primer número
                 "numero_2": (190, 291, 5, (0, 0, 0)),          # Segundo número
             }
+            # ========================================
             
             # Insertar recibo de ingreso (NEGRITA solo el primero)
             x1, y1, s1, col1 = coords_recibo["recibo_ingreso_1"]

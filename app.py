@@ -375,7 +375,7 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
             pg_permiso = doc_permiso[0]
 
             coords_ags = {
-                "folio": (835, 103, 30),
+                "folio": (828, 103, 30),
                 "marca": (245, 305, 25, (0, 0, 0)),
                 "modelo": (245, 353, 25, (0, 0, 0)),
                 "anio": (245, 353, 25, (0, 0, 0)),

@@ -809,19 +809,22 @@ async def panel_admin(request: Request):
     return templates.TemplateResponse("panel.html", {"request": request})
 
 @app.get("/panel/admin_folios", response_class=HTMLResponse)
-@app.get("/panel/admin_folios", response_class=HTMLResponse)
 async def admin_folios_get(request: Request):
     if not request.session.get("admin"):
         return RedirectResponse(url="/panel/login", status_code=303)
     
     try:
-        # TRAER TODO SIN FILTROS
+        print("[ADMIN_FOLIOS] Consultando base de datos...")
+        
+        # CONSULTA SIMPLE SIN ORDENAR
         folios_data = supabase.table("folios_registrados")\
             .select("*")\
-            .order("created_at", desc=True)\
             .execute()
         
         folios = folios_data.data or []
+        
+        print(f"[ADMIN_FOLIOS] ✅ Se obtuvieron {len(folios)} registros")
+        print(f"[ADMIN_FOLIOS] Datos: {folios[:2] if folios else 'vacío'}")  # Muestra primeros 2
         
         # Calcular estado vigente/vencido
         hoy = datetime.now(ZoneInfo(TZ)).date()
@@ -832,13 +835,14 @@ async def admin_folios_get(request: Request):
                     f['estado_calc'] = "VIGENTE" if hoy <= fecha_ven else "VENCIDO"
                 else:
                     f['estado_calc'] = "SIN FECHA"
-            except:
+            except Exception as fecha_err:
+                print(f"[ADMIN_FOLIOS] Error calculando fecha: {fecha_err}")
                 f['estado_calc'] = "ERROR"
         
-        print(f"[ADMIN_FOLIOS] Total registros: {len(folios)}")
-        
     except Exception as e:
-        print(f"[ADMIN_FOLIOS] ERROR: {e}")
+        print(f"[ADMIN_FOLIOS] ❌ ERROR CRÍTICO: {e}")
+        import traceback
+        traceback.print_exc()
         folios = []
     
     return templates.TemplateResponse("admin_folios.html", {

@@ -63,7 +63,6 @@
             text-align:center;
         }
         
-        /* BUSCADOR */
         .search-box {
             background:#e8f5e8; 
             border:3px solid #3B5998; 
@@ -83,7 +82,7 @@
         .search-controls {
             display: flex;
             gap: 15px;
-            align-items: center;
+            align-items: flex-end;
             flex-wrap: wrap;
         }
         
@@ -136,11 +135,6 @@
             text-align: center;
             font-size: 14px;
             color: #2d5730;
-            font-weight: bold;
-        }
-        
-        .highlight {
-            background: #ffeb3b;
             font-weight: bold;
         }
         
@@ -211,6 +205,7 @@
             text-decoration: none;
             font-size: 12px;
             margin-right: 5px;
+            display: inline-block;
         }
         
         .btn-eliminar {
@@ -270,7 +265,7 @@
                 📊 Total de Folios Registrados: <span id="totalFolios">{{ folios|length }}</span>
             </div>
             
-            <!-- BUSCADOR -->
+            {% if folios %}
             <div class="search-box">
                 <div class="search-title">🔍 BUSCADOR DE FOLIOS</div>
                 
@@ -302,7 +297,6 @@
                 <div class="search-results" id="searchResults"></div>
             </div>
             
-            {% if folios %}
             <div class="table-container">
                 <table id="foliosTable">
                     <thead>
@@ -324,26 +318,26 @@
                     <tbody id="foliosBody">
                         {% for folio in folios %}
                         <tr 
-                            data-folio="{{ folio.folio }}"
-                            data-numero_serie="{{ folio.numero_serie }}"
-                            data-contribuyente="{{ folio.contribuyente }}"
-                            data-marca="{{ folio.marca }}"
-                            data-linea="{{ folio.linea }}"
-                            data-numero_motor="{{ folio.numero_motor }}"
-                            data-color="{{ folio.color }}"
+                            data-folio="{{ folio.folio|upper }}"
+                            data-numero_serie="{{ folio.numero_serie|upper }}"
+                            data-contribuyente="{{ folio.contribuyente|upper }}"
+                            data-marca="{{ folio.marca|upper }}"
+                            data-linea="{{ folio.linea|upper }}"
+                            data-numero_motor="{{ folio.numero_motor|upper }}"
+                            data-color="{{ folio.color|upper }}"
                         >
                             <td style="white-space: nowrap;">
-                                <a href="/panel/editar_folio/{{ folio.folio }}" class="btn-editar">✏️ Editar</a>
-                                <form method="POST" action="/panel/eliminar_folio/{{ folio.folio }}" style="display: inline;" onsubmit="return confirm('¿Eliminar folio {{ folio.folio }}?');">
-                                    <button type="submit" class="btn-eliminar">🗑️ Eliminar</button>
+                                <a href="/panel/editar_folio/{{ folio.folio }}" class="btn-editar">✏️</a>
+                                <form method="POST" action="/panel/eliminar_folio/{{ folio.folio }}" style="display: inline;" onsubmit="return confirm('¿Eliminar {{ folio.folio }}?');">
+                                    <button type="submit" class="btn-eliminar">🗑️</button>
                                 </form>
                             </td>
                             <td><strong>{{ folio.folio }}</strong></td>
                             <td>
                                 {% if folio.estado_calc == 'VIGENTE' %}
-                                <span class="badge-vigente">✅ VIGENTE</span>
+                                <span class="badge-vigente">✅</span>
                                 {% else %}
-                                <span class="badge-vencido">❌ VENCIDO</span>
+                                <span class="badge-vencido">❌</span>
                                 {% endif %}
                             </td>
                             <td>{{ folio.marca }}</td>
@@ -362,7 +356,7 @@
             </div>
             
             <div class="no-results" id="noResults">
-                ❌ No se encontraron resultados para tu búsqueda
+                ❌ No se encontraron resultados
             </div>
             
             {% else %}
@@ -377,75 +371,72 @@
         </div>
     </div>
 
+    {% if folios %}
     <script>
-        // BUSCADOR VERGUÍSIMO
+        console.log('🔍 Buscador iniciado');
+        
         const searchInput = document.getElementById('searchInput');
         const searchField = document.getElementById('searchField');
         const searchResults = document.getElementById('searchResults');
         const foliosBody = document.getElementById('foliosBody');
         const noResults = document.getElementById('noResults');
         const totalFolios = document.getElementById('totalFolios');
-        const allRows = foliosBody ? foliosBody.querySelectorAll('tr') : [];
+        const allRows = Array.from(foliosBody.querySelectorAll('tr'));
         const totalOriginal = allRows.length;
 
+        console.log(`📊 Total de filas: ${totalOriginal}`);
+
         function performSearch() {
-            if (!foliosBody) return;
-            
             const searchTerm = searchInput.value.trim().toUpperCase();
             const field = searchField.value;
             
+            console.log(`🔎 Buscando: "${searchTerm}" en campo: ${field}`);
+            
             let visibleCount = 0;
             
-            allRows.forEach(row => {
+            allRows.forEach((row, index) => {
+                const fieldValue = row.getAttribute(`data-${field}`) || '';
+                
                 if (searchTerm === '') {
-                    // Sin búsqueda, mostrar todo
                     row.classList.remove('hidden');
                     visibleCount++;
                 } else {
-                    // Buscar en el campo seleccionado
-                    const fieldValue = row.getAttribute(`data-${field}`) || '';
-                    
-                    if (fieldValue.toUpperCase().includes(searchTerm)) {
+                    if (fieldValue.includes(searchTerm)) {
                         row.classList.remove('hidden');
                         visibleCount++;
+                        console.log(`✅ Match en fila ${index}: ${fieldValue}`);
                     } else {
                         row.classList.add('hidden');
                     }
                 }
             });
             
-            // Actualizar resultados
+            console.log(`📈 Resultados visibles: ${visibleCount}`);
+            
             if (searchTerm === '') {
                 searchResults.innerHTML = '';
                 noResults.style.display = 'none';
                 totalFolios.textContent = totalOriginal;
             } else {
                 if (visibleCount === 0) {
-                    searchResults.innerHTML = '❌ 0 resultados encontrados';
+                    searchResults.innerHTML = '❌ 0 resultados';
                     noResults.style.display = 'block';
                     totalFolios.textContent = '0';
                 } else {
-                    searchResults.innerHTML = `✅ ${visibleCount} resultado${visibleCount !== 1 ? 's' : ''} encontrado${visibleCount !== 1 ? 's' : ''}`;
+                    searchResults.innerHTML = `✅ ${visibleCount} resultado${visibleCount !== 1 ? 's' : ''}`;
                     noResults.style.display = 'none';
                     totalFolios.textContent = visibleCount;
                 }
             }
         }
 
-        // Event listeners
-        if (searchInput) {
-            searchInput.addEventListener('input', performSearch);
-            searchInput.addEventListener('keyup', performSearch);
-        }
-        
-        if (searchField) {
-            searchField.addEventListener('change', performSearch);
-        }
+        searchInput.addEventListener('input', performSearch);
+        searchInput.addEventListener('keyup', performSearch);
+        searchField.addEventListener('change', performSearch);
 
-        // Limpiar búsqueda al cargar
-        if (searchInput) {
-            searchInput.value = '';
-        }
+        searchInput.value = '';
+        console.log('✅ Buscador configurado correctamente');
     </script>
+    {% endif %}
 </body>
 </html>

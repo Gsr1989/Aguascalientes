@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Login - Panel Administrativo Aguascalientes</title>
+    <title>Panel Administrativo - Aguascalientes</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * { 
@@ -13,7 +13,12 @@
         
         body { 
             font-family: Arial, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #6B73C1;
+            min-height: 100vh;
+        }
+        
+        .main-container {
+            width: 100%;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -21,256 +26,277 @@
             padding: 20px;
         }
         
-        .container {
+        .login-card {
             width: 100%;
-            max-width: 500px;
+            max-width: 450px;
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             overflow: hidden;
-            animation: slideIn 0.5s ease-out;
         }
         
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .header {
+        .header-logo {
             width: 100%;
+            padding: 20px;
+            background: white;
             text-align: center;
         }
         
-        .header img {
-            width: 100%;
+        .header-logo img {
+            max-width: 200px;
             height: auto;
-            display: block;
         }
         
-        .login-box {
-            padding: 50px 40px;
-        }
-        
-        .logo-title {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        
-        .logo-title h1 {
-            color: #3B5998;
-            font-size: 32px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: bold;
-        }
-        
-        .logo-title p {
-            color: #666;
+        .citas-section {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            border-bottom: 2px solid #e0e0e0;
             font-size: 16px;
-            font-weight: 500;
+            color: #5a6c7d;
+            font-weight: 600;
         }
         
-        .divider {
-            height: 3px;
-            background: linear-gradient(90deg, #3B5998, #667eea);
-            margin: 25px 0 35px 0;
-            border-radius: 10px;
+        .login-content {
+            padding: 40px 30px;
         }
         
-        .error {
-            background: linear-gradient(135deg, #ff5252, #f44336);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            text-align: center;
+        .welcome-title {
+            font-size: 32px;
             font-weight: bold;
-            font-size: 15px;
-            box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
-            animation: shake 0.5s;
+            color: #1e3a8a;
+            margin-bottom: 30px;
+            text-align: left;
         }
         
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
+        .system-info {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #6B73C1;
+        }
+        
+        .system-info .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .system-info h2 {
+            color: #5a6c7d;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .system-info p {
+            color: #9ca3af;
+            font-size: 14px;
         }
         
         .form-group {
-            margin-bottom: 25px;
-            position: relative;
+            margin-bottom: 20px;
         }
         
         label {
-            display: block;
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 10px;
-            font-size: 15px;
             display: flex;
             align-items: center;
             gap: 8px;
+            color: #374151;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
         }
         
-        .icon {
-            font-size: 18px;
+        .label-icon {
+            font-size: 16px;
         }
         
         input[type="text"],
         input[type="password"] {
             width: 100%;
-            padding: 15px 20px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 16px;
+            padding: 14px 16px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
             transition: all 0.3s ease;
-            background: #f9f9f9;
-        }
-        
-        input[type="text"]:focus,
-        input[type="password"]:focus {
-            outline: none;
-            border-color: #3B5998;
             background: white;
-            box-shadow: 0 0 0 4px rgba(59, 89, 152, 0.1);
         }
         
-        .btn {
+        input::placeholder {
+            color: #9ca3af;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #6B73C1;
+            box-shadow: 0 0 0 3px rgba(107, 115, 193, 0.1);
+        }
+        
+        .btn-login {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, #3B5998, #667eea);
+            background: #6B73C1;
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 17px;
+            border-radius: 8px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            box-shadow: 0 6px 20px rgba(59, 89, 152, 0.3);
             margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         
-        .btn:hover {
-            background: linear-gradient(135deg, #2d4373, #5568d3);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(59, 89, 152, 0.4);
+        .btn-login:hover {
+            background: #5a5fa8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(107, 115, 193, 0.3);
         }
         
-        .btn:active {
+        .btn-login:active {
             transform: translateY(0);
         }
         
-        .footer-info {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 25px;
-            border-top: 2px solid #f0f0f0;
+        .error-message {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+            padding: 14px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
-        .footer-info p {
-            color: #999;
+        .footer-text {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .footer-text p {
+            color: #6b7280;
             font-size: 13px;
             line-height: 1.6;
         }
         
-        .footer-info strong {
-            color: #3B5998;
+        .footer-text strong {
+            color: #374151;
+            display: block;
+            margin-bottom: 4px;
         }
         
         @media (max-width: 600px) {
-            .login-box { 
-                padding: 40px 25px; 
+            .main-container {
+                padding: 10px;
             }
             
-            .logo-title h1 { 
-                font-size: 26px; 
+            .login-card {
+                max-width: 100%;
             }
             
-            .logo-title p {
-                font-size: 14px;
+            .login-content {
+                padding: 30px 20px;
+            }
+            
+            .welcome-title {
+                font-size: 26px;
+            }
+            
+            .system-info .icon {
+                font-size: 40px;
             }
             
             input[type="text"],
             input[type="password"] {
-                padding: 13px 16px;
-                font-size: 15px;
-            }
-            
-            .btn {
-                padding: 14px;
-                font-size: 15px;
+                padding: 12px 14px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <img src="/static/encabezado.jpg" alt="Gobierno de Aguascalientes">
-        </div>
-        
-        <div class="login-box">
-            <div class="logo-title">
-                <h1>🏛️ CMOV</h1>
-                <p>Panel de Administración</p>
+    <div class="main-container">
+        <div class="login-card">
+            <!-- Header con logo de Aguascalientes -->
+            <div class="header-logo">
+                <img src="/static/encabezado.jpg" alt="Gobierno de Aguascalientes" style="width: 100%; max-width: 100%;">
             </div>
             
-            <div class="divider"></div>
-            
-            {% if request.query_params.get('error') %}
-            <div class="error">
-                ❌ Usuario o contraseña incorrectos
+            <!-- Sección "Citas Web" -->
+            <div class="citas-section">
+                Citas Web
             </div>
-            {% endif %}
             
-            <form method="POST" action="/panel/login">
-                <div class="form-group">
-                    <label for="username">
-                        <span class="icon">👤</span> Usuario
-                    </label>
-                    <input 
-                        type="text" 
-                        id="username" 
-                        name="username" 
-                        placeholder="Ingrese su usuario"
-                        required 
-                        autofocus
-                    >
+            <!-- Contenido del login -->
+            <div class="login-content">
+                <h1 class="welcome-title">BIENVENIDO</h1>
+                
+                <!-- Info del sistema -->
+                <div class="system-info">
+                    <div class="icon">🏛️</div>
+                    <h2>CMOV</h2>
+                    <p>Panel de Administración</p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="password">
-                        <span class="icon">🔒</span> Contraseña
-                    </label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        placeholder="Ingrese su contraseña"
-                        required
-                    >
+                <!-- Mensaje de error -->
+                {% if request.query_params.get('error') %}
+                <div class="error-message">
+                    <span>❌</span>
+                    <span>Usuario o contraseña incorrectos</span>
                 </div>
+                {% endif %}
                 
-                <button type="submit" class="btn">
-                    🚀 Iniciar Sesión
-                </button>
-            </form>
-            
-            <div class="footer-info">
-                <p>
-                    <strong>Sistema de Permisos Digitales</strong><br>
-                    Coordinación General de Movilidad<br>
-                    Gobierno del Estado de Aguascalientes
-                </p>
+                <!-- Formulario -->
+                <form method="POST" action="/panel/login">
+                    <div class="form-group">
+                        <label for="username">
+                            <span class="label-icon">👤</span>
+                            <span>Usuario</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            placeholder="Ingrese su usuario"
+                            required 
+                            autofocus
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">
+                            <span class="label-icon">🔒</span>
+                            <span>Contraseña</span>
+                        </label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="Ingrese su contraseña"
+                            required
+                        >
+                    </div>
+                    
+                    <button type="submit" class="btn-login">
+                        <span>🚀</span>
+                        <span>INICIAR SESIÓN</span>
+                    </button>
+                </form>
+                
+                <!-- Footer -->
+                <div class="footer-text">
+                    <p>
+                        <strong>Sistema de Permisos Digitales</strong>
+                        Coordinación General de Movilidad<br>
+                        Gobierno del Estado de Aguascalientes
+                    </p>
+                </div>
             </div>
         </div>
     </div>

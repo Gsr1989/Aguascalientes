@@ -809,15 +809,15 @@ async def panel_admin(request: Request):
     return templates.TemplateResponse("panel.html", {"request": request})
 
 @app.get("/panel/admin_folios", response_class=HTMLResponse)
+@app.get("/panel/admin_folios", response_class=HTMLResponse)
 async def admin_folios_get(request: Request):
     if not request.session.get("admin"):
         return RedirectResponse(url="/panel/login", status_code=303)
     
-    # TRAER TODOS LOS FOLIOS DE AGUASCALIENTES (sin importar cómo esté escrita la entidad)
     try:
+        # TRAER TODO SIN FILTROS
         folios_data = supabase.table("folios_registrados")\
             .select("*")\
-            .like("folio", "654%")\
             .order("created_at", desc=True)\
             .execute()
         
@@ -827,15 +827,18 @@ async def admin_folios_get(request: Request):
         hoy = datetime.now(ZoneInfo(TZ)).date()
         for f in folios:
             try:
-                fecha_ven = datetime.fromisoformat(f['fecha_vencimiento']).date()
-                f['estado_calc'] = "VIGENTE" if hoy <= fecha_ven else "VENCIDO"
+                if f.get('fecha_vencimiento'):
+                    fecha_ven = datetime.fromisoformat(f['fecha_vencimiento']).date()
+                    f['estado_calc'] = "VIGENTE" if hoy <= fecha_ven else "VENCIDO"
+                else:
+                    f['estado_calc'] = "SIN FECHA"
             except:
                 f['estado_calc'] = "ERROR"
         
-        print(f"[ADMIN_FOLIOS] Se encontraron {len(folios)} folios")
+        print(f"[ADMIN_FOLIOS] Total registros: {len(folios)}")
         
     except Exception as e:
-        print(f"[ADMIN_FOLIOS] Error: {e}")
+        print(f"[ADMIN_FOLIOS] ERROR: {e}")
         folios = []
     
     return templates.TemplateResponse("admin_folios.html", {

@@ -813,29 +813,36 @@ async def admin_folios_get(request: Request):
     if not request.session.get("admin"):
         return RedirectResponse(url="/panel/login", status_code=303)
     
-    # Obtener todos los folios de AGS
-    folios_data = supabase.table("folios_registrados")\
-        .select("*")\
-        .eq("entidad", ENTIDAD)\
-        .order("fecha_expedicion", desc=True)\
-        .execute()
-    
-    folios = folios_data.data or []
-    
-    # Calcular estado
-    hoy = datetime.now(ZoneInfo(TZ)).date()
-    for f in folios:
-        try:
-            fecha_ven = datetime.fromisoformat(f['fecha_vencimiento']).date()
-            f['estado_calc'] = "VIGENTE" if hoy <= fecha_ven else "VENCIDO"
-        except:
-            f['estado_calc'] = "ERROR"
+    # TRAER TODOS LOS FOLIOS DE AGUASCALIENTES (sin importar cómo esté escrita la entidad)
+    try:
+        folios_data = supabase.table("folios_registrados")\
+            .select("*")\
+            .like("folio", "654%")\
+            .order("created_at", desc=True)\
+            .execute()
+        
+        folios = folios_data.data or []
+        
+        # Calcular estado vigente/vencido
+        hoy = datetime.now(ZoneInfo(TZ)).date()
+        for f in folios:
+            try:
+                fecha_ven = datetime.fromisoformat(f['fecha_vencimiento']).date()
+                f['estado_calc'] = "VIGENTE" if hoy <= fecha_ven else "VENCIDO"
+            except:
+                f['estado_calc'] = "ERROR"
+        
+        print(f"[ADMIN_FOLIOS] Se encontraron {len(folios)} folios")
+        
+    except Exception as e:
+        print(f"[ADMIN_FOLIOS] Error: {e}")
+        folios = []
     
     return templates.TemplateResponse("admin_folios.html", {
         "request": request,
         "folios": folios
     })
-
+    
 @app.get("/panel/admin_tablas", response_class=HTMLResponse)
 async def admin_tablas_get(request: Request):
     if not request.session.get("admin"):

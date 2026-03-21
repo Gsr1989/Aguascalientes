@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Tabla: {{ tabla }} - Aguascalientes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
+        .container { width:100%; max-width:1400px; margin:0 auto; background:#fff; }
+        .header, .footer { width:100%; text-align:center; }
+        .header img, .footer img { width:100%; height:auto; display:block; }
+        
+        .validacion-titulo {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #3B5998;
+            letter-spacing: 2px;
+            margin: 20px 0;
+            padding: 15px;
+            text-transform: uppercase;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .resultado-titulo {
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            color: #3B5998;
+            letter-spacing: 1px;
+            margin: 25px 0 20px 0;
+            padding: 10px;
+            text-transform: uppercase;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        .content { padding:20px; }
+        
+        .btn-back {
+            background:#666; 
+            color:#fff; 
+            padding:12px 24px; 
+            text-decoration:none;
+            border-radius:8px; 
+            font-size:14px; 
+            font-weight:bold; 
+            display:inline-block; 
+            margin-bottom:20px;
+        }
+        
+        .btn-back:hover { background:#444; }
+        
+        .stats-box {
+            background:#e3f2fd; 
+            border:3px solid #2196F3; 
+            color:#1565c0;
+            padding:20px; 
+            border-radius:15px; 
+            margin:20px 0; 
+            font-size:18px; 
+            font-weight:bold;
+            text-align:center;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            border: 3px solid #3B5998;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #3B5998;
+            color: white;
+        }
+        
+        th {
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #ddd;
+        }
+        
+        tbody tr:hover {
+            background: #f5f5f5;
+        }
+        
+        td {
+            padding: 10px;
+            font-size: 13px;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 16px;
+        }
+        
+        @media (max-width:600px){
+            .content{ padding:15px; }
+            .validacion-titulo { font-size: 20px; letter-spacing: 1px; margin: 15px 0; padding: 10px; }
+            .resultado-titulo { font-size: 22px; margin: 20px 0 15px 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" loading="lazy">
+        </div>
+
+        <div class="validacion-titulo">
+            SISTEMA DE PERMISOS DIGITALES
+        </div>
+        
+        <div class="resultado-titulo">
+            TABLA: {{ tabla }}
+        </div>
+
+        <div class="content">
+            <a href="/panel/admin_tablas" class="btn-back">← Volver a Tablas</a>
+            
+            <div class="stats-box">
+                📊 Total de Registros: {{ registros|length }}
+            </div>
+            
+            {% if registros %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            {% if registros[0] %}
+                                {% for key in registros[0].keys() %}
+                                <th>{{ key }}</th>
+                                {% endfor %}
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for registro in registros %}
+                        <tr>
+                            {% for value in registro.values() %}
+                            <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="no-data">
+                📭 No hay registros en esta tabla
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <img src="/static/pie.jpg" alt="Pie Aguascalientes" loading="lazy">
+        </div>
+    </div>
+</body>
+</html>

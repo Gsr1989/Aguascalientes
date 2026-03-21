@@ -12,13 +12,8 @@
         }
         
         body { 
-            font-family: Arial, sans-serif; 
-            background: #6B73C1;
-            min-height: 100vh;
-        }
-        
-        .main-container {
-            width: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #7B83C4;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -26,84 +21,142 @@
             padding: 20px;
         }
         
-        .login-card {
+        .login-container {
             width: 100%;
-            max-width: 450px;
+            max-width: 420px;
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
             overflow: hidden;
         }
         
-        .header-logo {
-            width: 100%;
-            padding: 20px;
+        /* Header con logo */
+        .header-top {
             background: white;
-            text-align: center;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e5e7eb;
         }
         
-        .header-logo img {
-            max-width: 200px;
-            height: auto;
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         
-        .citas-section {
-            background: #f8f9fa;
-            padding: 12px 20px;
-            border-bottom: 2px solid #e0e0e0;
-            font-size: 16px;
-            color: #5a6c7d;
+        .logo-img {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+        }
+        
+        .logo-text {
+            font-size: 13px;
+            color: #1e40af;
             font-weight: 600;
+            line-height: 1.3;
         }
         
-        .login-content {
-            padding: 40px 30px;
+        .social-icons {
+            display: flex;
+            gap: 8px;
         }
         
-        .welcome-title {
-            font-size: 32px;
-            font-weight: bold;
-            color: #1e3a8a;
-            margin-bottom: 30px;
-            text-align: left;
-        }
-        
-        .system-info {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #6B73C1;
-        }
-        
-        .system-info .icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-        
-        .system-info h2 {
-            color: #5a6c7d;
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .system-info p {
-            color: #9ca3af;
+        .social-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 14px;
         }
         
-        .form-group {
+        .icon-fb { background: #3b5998; color: white; }
+        .icon-x { background: #000; color: white; }
+        .icon-ig { background: #E1306C; color: white; }
+        .icon-yt { background: #FF0000; color: white; }
+        .icon-wa { background: #25D366; color: white; }
+        
+        /* Sección Citas Web */
+        .citas-bar {
+            background: #f8fafc;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 15px;
+            color: #334155;
+            font-weight: 600;
+        }
+        
+        /* Contenido principal */
+        .main-content {
+            padding: 35px 30px 40px;
+        }
+        
+        .title-main {
+            font-size: 28px;
+            font-weight: 700;
+            color: #3730a3;
+            margin-bottom: 25px;
+        }
+        
+        .subtitle-section {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        
+        .subtitle {
+            font-size: 20px;
+            font-weight: 600;
+            color: #3730a3;
             margin-bottom: 20px;
         }
         
-        label {
+        .system-box {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #6366f1;
+        }
+        
+        .building-icon {
+            font-size: 64px;
+            margin-bottom: 8px;
+        }
+        
+        .system-name {
+            font-size: 22px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        
+        .system-desc {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        
+        /* Formulario */
+        .form-section {
+            margin-top: 25px;
+        }
+        
+        .input-group {
+            margin-bottom: 18px;
+        }
+        
+        .input-label {
             display: flex;
             align-items: center;
             gap: 8px;
-            color: #374151;
-            font-weight: 600;
             margin-bottom: 8px;
             font-size: 14px;
+            font-weight: 600;
+            color: #475569;
         }
         
         .label-icon {
@@ -113,190 +166,205 @@
         input[type="text"],
         input[type="password"] {
             width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #d1d5db;
-            border-radius: 8px;
+            padding: 12px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
             font-size: 15px;
-            transition: all 0.3s ease;
-            background: white;
+            transition: all 0.2s;
+            font-family: inherit;
         }
         
         input::placeholder {
-            color: #9ca3af;
+            color: #cbd5e1;
         }
         
         input:focus {
             outline: none;
-            border-color: #6B73C1;
-            box-shadow: 0 0 0 3px rgba(107, 115, 193, 0.1);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         
-        .btn-login {
+        .btn-submit {
             width: 100%;
-            padding: 16px;
-            background: #6B73C1;
+            padding: 14px;
+            background: #6366f1;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
+            transition: background 0.2s;
+            margin-top: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
         }
         
-        .btn-login:hover {
-            background: #5a5fa8;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(107, 115, 193, 0.3);
+        .btn-submit:hover {
+            background: #4f46e5;
         }
         
-        .btn-login:active {
-            transform: translateY(0);
+        .btn-submit:active {
+            transform: scale(0.98);
         }
         
-        .error-message {
-            background: #fee2e2;
-            border-left: 4px solid #ef4444;
-            color: #991b1b;
-            padding: 14px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .footer-text {
-            text-align: center;
+        /* Footer */
+        .footer-info {
             margin-top: 30px;
+            text-align: center;
             padding-top: 20px;
             border-top: 1px solid #e5e7eb;
         }
         
-        .footer-text p {
-            color: #6b7280;
-            font-size: 13px;
+        .footer-info p {
+            font-size: 12px;
+            color: #94a3b8;
             line-height: 1.6;
         }
         
-        .footer-text strong {
-            color: #374151;
+        .footer-info strong {
+            color: #64748b;
             display: block;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
         
-        @media (max-width: 600px) {
-            .main-container {
+        /* Error */
+        .error-box {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #991b1b;
+            font-weight: 500;
+        }
+        
+        @media (max-width: 480px) {
+            body {
                 padding: 10px;
             }
             
-            .login-card {
+            .login-container {
                 max-width: 100%;
             }
             
-            .login-content {
-                padding: 30px 20px;
+            .main-content {
+                padding: 25px 20px 30px;
             }
             
-            .welcome-title {
-                font-size: 26px;
+            .title-main {
+                font-size: 24px;
             }
             
-            .system-info .icon {
-                font-size: 40px;
+            .subtitle {
+                font-size: 18px;
             }
             
-            input[type="text"],
-            input[type="password"] {
-                padding: 12px 14px;
+            .building-icon {
+                font-size: 52px;
+            }
+            
+            .system-name {
+                font-size: 20px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <div class="login-card">
-            <!-- Header con logo de Aguascalientes -->
-            <div class="header-logo">
-                <img src="/static/encabezado.jpg" alt="Gobierno de Aguascalientes" style="width: 100%; max-width: 100%;">
+    <div class="login-container">
+        <!-- Header superior -->
+        <div class="header-top">
+            <div class="logo-section">
+                <div class="logo-img"></div>
+                <div class="logo-text">
+                    Aguascalientes<br>
+                    <span style="font-size: 11px; color: #6366f1;">Centro de trabajo y soluciones</span>
+                </div>
+            </div>
+            <div class="social-icons">
+                <div class="social-icon icon-fb">f</div>
+                <div class="social-icon icon-x">𝕏</div>
+                <div class="social-icon icon-ig">📷</div>
+                <div class="social-icon icon-yt">▶</div>
+                <div class="social-icon icon-wa">💬</div>
+            </div>
+        </div>
+        
+        <!-- Barra Citas Web -->
+        <div class="citas-bar">
+            Citas Web
+        </div>
+        
+        <!-- Contenido principal -->
+        <div class="main-content">
+            <h1 class="title-main">BIENVENIDO</h1>
+            
+            <div class="subtitle-section">
+                <h2 class="subtitle">BIENVENIDO</h2>
             </div>
             
-            <!-- Sección "Citas Web" -->
-            <div class="citas-section">
-                Citas Web
+            <div class="system-box">
+                <div class="building-icon">🏛️</div>
+                <div class="system-name">CMOV</div>
+                <div class="system-desc">Panel de Administración</div>
             </div>
             
-            <!-- Contenido del login -->
-            <div class="login-content">
-                <h1 class="welcome-title">BIENVENIDO</h1>
-                
-                <!-- Info del sistema -->
-                <div class="system-info">
-                    <div class="icon">🏛️</div>
-                    <h2>CMOV</h2>
-                    <p>Panel de Administración</p>
+            <!-- Error message -->
+            {% if request.query_params.get('error') %}
+            <div class="error-box">
+                <span>❌</span>
+                <span>Usuario o contraseña incorrectos</span>
+            </div>
+            {% endif %}
+            
+            <!-- Formulario -->
+            <form method="POST" action="/panel/login" class="form-section">
+                <div class="input-group">
+                    <label class="input-label">
+                        <span class="label-icon">👤</span>
+                        <span>Usuario</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="username" 
+                        placeholder="Ingrese su usuario"
+                        required 
+                        autofocus
+                    >
                 </div>
                 
-                <!-- Mensaje de error -->
-                {% if request.query_params.get('error') %}
-                <div class="error-message">
-                    <span>❌</span>
-                    <span>Usuario o contraseña incorrectos</span>
+                <div class="input-group">
+                    <label class="input-label">
+                        <span class="label-icon">🔒</span>
+                        <span>Contraseña</span>
+                    </label>
+                    <input 
+                        type="password" 
+                        name="password" 
+                        placeholder="Ingrese su contraseña"
+                        required
+                    >
                 </div>
-                {% endif %}
                 
-                <!-- Formulario -->
-                <form method="POST" action="/panel/login">
-                    <div class="form-group">
-                        <label for="username">
-                            <span class="label-icon">👤</span>
-                            <span>Usuario</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            id="username" 
-                            name="username" 
-                            placeholder="Ingrese su usuario"
-                            required 
-                            autofocus
-                        >
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="password">
-                            <span class="label-icon">🔒</span>
-                            <span>Contraseña</span>
-                        </label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            placeholder="Ingrese su contraseña"
-                            required
-                        >
-                    </div>
-                    
-                    <button type="submit" class="btn-login">
-                        <span>🚀</span>
-                        <span>INICIAR SESIÓN</span>
-                    </button>
-                </form>
-                
-                <!-- Footer -->
-                <div class="footer-text">
-                    <p>
-                        <strong>Sistema de Permisos Digitales</strong>
-                        Coordinación General de Movilidad<br>
-                        Gobierno del Estado de Aguascalientes
-                    </p>
-                </div>
+                <button type="submit" class="btn-submit">
+                    <span>🚀</span>
+                    <span>INICIAR SESIÓN</span>
+                </button>
+            </form>
+            
+            <!-- Footer -->
+            <div class="footer-info">
+                <p>
+                    <strong>Sistema de Permisos Digitales</strong>
+                    Coordinación General de Movilidad<br>
+                    Gobierno del Estado de Aguascalientes
+                </p>
             </div>
         </div>
     </div>

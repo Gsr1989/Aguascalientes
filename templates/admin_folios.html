@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
-        .container { width:100%; max-width:1200px; margin:0 auto; background:#fff; }
+        .container { width:100%; max-width:100%; margin:0 auto; background:#fff; }
         .header, .footer { width:100%; text-align:center; }
         .header img, .footer img { width:100%; height:auto; display:block; }
         
@@ -49,8 +49,6 @@
             margin-bottom:20px;
         }
         
-        .btn-back:hover { background:#444; }
-        
         .stats-box {
             background:#e8f5e8; 
             border:3px solid #4caf50; 
@@ -61,6 +59,84 @@
             font-size:18px; 
             font-weight:bold;
             text-align:center;
+        }
+        
+        .search-box {
+            background:#e8f5e8; 
+            border:3px solid #3B5998; 
+            padding:25px; 
+            border-radius:15px; 
+            margin:20px 0;
+        }
+        
+        .search-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #3B5998;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .search-controls {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .search-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .search-label {
+            display: block;
+            font-weight: bold;
+            color: #2d5730;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        #searchField {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            background: white;
+        }
+        
+        .btn-buscar {
+            background: #3B5998;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn-buscar:hover {
+            background: #2d4373;
+        }
+        
+        .search-results {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #2d5730;
+            font-weight: bold;
         }
         
         .table-container {
@@ -84,7 +160,8 @@
             padding: 12px 10px;
             text-align: left;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 12px;
+            white-space: nowrap;
         }
         
         tbody tr {
@@ -95,47 +172,52 @@
             background: #f5f5f5;
         }
         
+        tbody tr.hidden {
+            display: none;
+        }
+        
         td {
             padding: 10px;
-            font-size: 13px;
+            font-size: 12px;
         }
         
         .badge-vigente {
             background: #4caf50;
             color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: bold;
         }
         
         .badge-vencido {
             background: #f44336;
             color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: bold;
         }
         
         .btn-editar {
             background: #2196F3;
             color: white;
-            padding: 6px 12px;
-            border-radius: 5px;
+            padding: 5px 10px;
+            border-radius: 4px;
             text-decoration: none;
-            font-size: 12px;
+            font-size: 11px;
             margin-right: 5px;
+            display: inline-block;
         }
         
         .btn-eliminar {
             background: #f44336;
             color: white;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
         }
         
         .no-data {
@@ -147,9 +229,8 @@
         
         @media (max-width:600px){
             .content{ padding:15px; }
-            .validacion-titulo { font-size: 20px; letter-spacing: 1px; margin: 15px 0; padding: 10px; }
-            .resultado-titulo { font-size: 22px; margin: 20px 0 15px 0; }
-            th, td { padding: 8px; font-size: 12px; }
+            .search-controls { flex-direction: column; }
+            .search-group { min-width: 100%; }
         }
     </style>
 </head>
@@ -171,62 +252,78 @@
             <a href="/panel/admin" class="btn-back">← Volver al Panel</a>
             
             <div class="stats-box">
-                📊 Total de Folios Registrados: {{ folios|length }}
+                📊 Total de Folios: <span id="totalFolios">{{ folios|length }}</span>
             </div>
             
             {% if folios %}
+            <div class="search-box">
+                <div class="search-title">🔍 BUSCADOR</div>
+                
+                <div class="search-controls">
+                    <div class="search-group" style="flex: 2;">
+                        <label class="search-label">Buscar:</label>
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="Escribe aquí..."
+                        >
+                    </div>
+                    
+                    <div class="search-group" style="flex: 1;">
+                        <label class="search-label">Campo:</label>
+                        <select id="searchField">
+                            <option value="all">Todos los campos</option>
+                            <option value="folio">Folio</option>
+                            <option value="numero_serie">Serie</option>
+                            <option value="contribuyente">Nombre</option>
+                            <option value="marca">Marca</option>
+                            <option value="linea">Línea</option>
+                            <option value="numero_motor">Motor</option>
+                            <option value="entidad">Entidad</option>
+                        </select>
+                    </div>
+                    
+                    <div class="search-group" style="flex: 0;">
+                        <button class="btn-buscar" onclick="performSearch()">🔍 BUSCAR</button>
+                    </div>
+                </div>
+                
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>Acciones</th>
-                            <th>Folio</th>
-                            <th>Estado</th>
-                            <th>Marca</th>
-                            <th>Línea</th>
-                            <th>Año</th>
-                            <th>Serie</th>
-                            <th>Motor</th>
-                            <th>Color</th>
-                            <th>Titular</th>
-                            <th>Expedición</th>
-                            <th>Vencimiento</th>
+                            {% if folios[0] %}
+                                {% for key in folios[0].keys() %}
+                                <th>{{ key }}</th>
+                                {% endfor %}
+                            {% endif %}
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="foliosBody">
                         {% for folio in folios %}
                         <tr>
                             <td style="white-space: nowrap;">
-                                <a href="/panel/editar_folio/{{ folio.folio }}" class="btn-editar">✏️ Editar</a>
-                                <form method="POST" action="/panel/eliminar_folio/{{ folio.folio }}" style="display: inline;" onsubmit="return confirm('¿Eliminar folio {{ folio.folio }}?');">
-                                    <button type="submit" class="btn-eliminar">🗑️ Eliminar</button>
+                                <a href="/panel/editar_folio/{{ folio.folio }}" class="btn-editar">✏️</a>
+                                <form method="POST" action="/panel/eliminar_folio/{{ folio.folio }}" style="display: inline;" onsubmit="return confirm('¿Eliminar?');">
+                                    <button type="submit" class="btn-eliminar">🗑️</button>
                                 </form>
                             </td>
-                            <td><strong>{{ folio.folio }}</strong></td>
-                            <td>
-                                {% if folio.estado_calc == 'VIGENTE' %}
-                                <span class="badge-vigente">✅ VIGENTE</span>
-                                {% else %}
-                                <span class="badge-vencido">❌ VENCIDO</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ folio.marca }}</td>
-                            <td>{{ folio.linea }}</td>
-                            <td>{{ folio.anio }}</td>
-                            <td>{{ folio.numero_serie }}</td>
-                            <td>{{ folio.numero_motor }}</td>
-                            <td>{{ folio.color }}</td>
-                            <td>{{ folio.contribuyente }}</td>
-                            <td>{{ folio.fecha_expedicion }}</td>
-                            <td>{{ folio.fecha_vencimiento }}</td>
+                            {% for key, value in folio.items() %}
+                            <td>{{ value }}</td>
+                            {% endfor %}
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            
             {% else %}
             <div class="no-data">
-                📭 No hay folios registrados en el sistema
+                📭 No hay registros en la base de datos
             </div>
             {% endif %}
         </div>
@@ -235,5 +332,67 @@
             <img src="/static/pie.jpg" alt="Pie Aguascalientes" loading="lazy">
         </div>
     </div>
+
+    {% if folios %}
+    <script>
+        const allRows = Array.from(document.querySelectorAll('#foliosBody tr'));
+        const totalOriginal = allRows.length;
+
+        function performSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim().toUpperCase();
+            const searchField = document.getElementById('searchField').value;
+            const searchResults = document.getElementById('searchResults');
+            const totalFolios = document.getElementById('totalFolios');
+            
+            let visibleCount = 0;
+            
+            allRows.forEach(row => {
+                if (searchTerm === '') {
+                    row.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    const cells = Array.from(row.cells);
+                    let found = false;
+                    
+                    if (searchField === 'all') {
+                        // Buscar en todas las celdas
+                        found = cells.some(cell => 
+                            cell.textContent.toUpperCase().includes(searchTerm)
+                        );
+                    } else {
+                        // Buscar en campo específico
+                        found = cells.some(cell => 
+                            cell.textContent.toUpperCase().includes(searchTerm)
+                        );
+                    }
+                    
+                    if (found) {
+                        row.classList.remove('hidden');
+                        visibleCount++;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                }
+            });
+            
+            if (searchTerm === '') {
+                searchResults.innerHTML = '';
+                totalFolios.textContent = totalOriginal;
+            } else {
+                searchResults.innerHTML = visibleCount === 0 
+                    ? '❌ 0 resultados' 
+                    : `✅ ${visibleCount} resultado${visibleCount !== 1 ? 's' : ''}`;
+                totalFolios.textContent = visibleCount;
+            }
+        }
+
+        // También buscar con Enter
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    </script>
+    {% endif %}
 </body>
 </html>

@@ -3,369 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <title>Panel Administrativo - Aguascalientes</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        * { 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
-        }
+        body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
+        .container { width:100%; max-width:600px; margin:0 auto; background:#fff; }
+        .header, .footer { width:100%; text-align:center; }
+        .header img, .footer img { width:100%; height:auto; display:block; }
         
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #7B83C4;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .login-container {
-            width: 100%;
-            max-width: 420px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-            overflow: hidden;
-        }
-        
-        /* Header con logo */
-        .header-top {
-            background: white;
-            padding: 15px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .logo-img {
-            width: 45px;
-            height: 45px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 8px;
-        }
-        
-        .logo-text {
-            font-size: 13px;
-            color: #1e40af;
-            font-weight: 600;
-            line-height: 1.3;
-        }
-        
-        .social-icons {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .social-icon {
-            width: 28px;
-            height: 28px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-        }
-        
-        .icon-fb { background: #3b5998; color: white; }
-        .icon-x { background: #000; color: white; }
-        .icon-ig { background: #E1306C; color: white; }
-        .icon-yt { background: #FF0000; color: white; }
-        .icon-wa { background: #25D366; color: white; }
-        
-        /* Sección Citas Web */
-        .citas-bar {
-            background: #f8fafc;
-            padding: 12px 20px;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 15px;
-            color: #334155;
-            font-weight: 600;
-        }
-        
-        /* Contenido principal */
-        .main-content {
-            padding: 35px 30px 40px;
-        }
-        
-        .title-main {
-            font-size: 28px;
-            font-weight: 700;
-            color: #3730a3;
-            margin-bottom: 25px;
-        }
-        
-        .subtitle-section {
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-        }
-        
-        .subtitle {
-            font-size: 20px;
-            font-weight: 600;
-            color: #3730a3;
-            margin-bottom: 20px;
-        }
-        
-        .system-box {
+        .validacion-titulo {
             text-align: center;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #6366f1;
+            font-size: 24px;
+            font-weight: bold;
+            color: #3B5998;
+            letter-spacing: 2px;
+            margin: 20px 0;
+            padding: 15px;
+            text-transform: uppercase;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         
-        .building-icon {
-            font-size: 64px;
-            margin-bottom: 8px;
+        .resultado-titulo {
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            color: #3B5998;
+            letter-spacing: 1px;
+            margin: 25px 0 20px 0;
+            padding: 10px;
+            text-transform: uppercase;
+            font-family: 'Arial', sans-serif;
         }
         
-        .system-name {
-            font-size: 22px;
-            font-weight: 600;
-            color: #64748b;
-            margin-bottom: 4px;
+        .content { padding:20px; text-align:center; }
+        
+        .login-box {
+            background:#e8f5e8; 
+            border:3px solid #3B5998; 
+            color:#2d5730;
+            padding:30px; 
+            border-radius:15px; 
+            margin:20px 0; 
+            font-size:16px; 
+            line-height:1.8;
         }
         
-        .system-desc {
-            font-size: 14px;
-            color: #94a3b8;
+        .error-msg {
+            background:#ffeaea; 
+            border:3px solid #f44336; 
+            color:#8b2635;
+            padding:15px; 
+            border-radius:10px; 
+            margin:20px 0; 
+            font-size:16px; 
+            font-weight:bold;
+            text-align:center;
         }
         
-        /* Formulario */
-        .form-section {
-            margin-top: 25px;
+        .form-group { 
+            margin:20px 0; 
+            text-align:left; 
         }
         
-        .input-group {
-            margin-bottom: 18px;
-        }
-        
-        .input-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #475569;
-        }
-        
-        .label-icon {
-            font-size: 16px;
+        label {
+            display:block;
+            font-weight:bold;
+            margin-bottom:8px;
+            color:#2d5730;
+            font-size:16px;
         }
         
         input[type="text"],
         input[type="password"] {
-            width: 100%;
-            padding: 12px 14px;
-            border: 2px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 15px;
-            transition: all 0.2s;
-            font-family: inherit;
-        }
-        
-        input::placeholder {
-            color: #cbd5e1;
+            width:100%;
+            padding:12px;
+            border:2px solid #4caf50;
+            border-radius:8px;
+            font-size:16px;
+            box-sizing:border-box;
         }
         
         input:focus {
-            outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            outline:none;
+            border-color:#3B5998;
         }
         
-        .btn-submit {
-            width: 100%;
-            padding: 14px;
-            background: #6366f1;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+        .btn-login {
+            background:#3B5998; 
+            color:#fff; 
+            padding:15px 30px; 
+            text-decoration:none;
+            border:none;
+            border-radius:8px; 
+            font-size:16px; 
+            font-weight:bold; 
+            display:inline-block; 
+            transition:background .3s;
+            cursor:pointer;
+            width:100%;
+            margin-top:20px;
         }
         
-        .btn-submit:hover {
-            background: #4f46e5;
+        .btn-login:hover { 
+            background:#2d4373; 
         }
         
-        .btn-submit:active {
-            transform: scale(0.98);
-        }
-        
-        /* Footer */
-        .footer-info {
-            margin-top: 30px;
-            text-align: center;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-        }
-        
-        .footer-info p {
-            font-size: 12px;
-            color: #94a3b8;
-            line-height: 1.6;
-        }
-        
-        .footer-info strong {
-            color: #64748b;
-            display: block;
-            margin-bottom: 2px;
-        }
-        
-        /* Error */
-        .error-box {
-            background: #fef2f2;
-            border-left: 4px solid #ef4444;
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            color: #991b1b;
-            font-weight: 500;
-        }
-        
-        @media (max-width: 480px) {
-            body {
-                padding: 10px;
-            }
-            
-            .login-container {
-                max-width: 100%;
-            }
-            
-            .main-content {
-                padding: 25px 20px 30px;
-            }
-            
-            .title-main {
-                font-size: 24px;
-            }
-            
-            .subtitle {
-                font-size: 18px;
-            }
-            
-            .building-icon {
-                font-size: 52px;
-            }
-            
-            .system-name {
-                font-size: 20px;
-            }
+        @media (max-width:600px){
+            .content{ padding:15px; }
+            .login-box{ padding:20px; font-size:14px; }
+            .validacion-titulo { font-size: 20px; letter-spacing: 1px; margin: 15px 0; padding: 10px; }
+            .resultado-titulo { font-size: 22px; margin: 20px 0 15px 0; }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <!-- Header superior -->
-        <div class="header-top">
-            <div class="logo-section">
-                <div class="logo-img"></div>
-                <div class="logo-text">
-                    Aguascalientes<br>
-                    <span style="font-size: 11px; color: #6366f1;">Centro de trabajo y soluciones</span>
-                </div>
-            </div>
-            <div class="social-icons">
-                <div class="social-icon icon-fb">f</div>
-                <div class="social-icon icon-x">𝕏</div>
-                <div class="social-icon icon-ig">📷</div>
-                <div class="social-icon icon-yt">▶</div>
-                <div class="social-icon icon-wa">💬</div>
-            </div>
+    <div class="container">
+        <!-- Encabezado -->
+        <div class="header">
+            <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" loading="lazy">
+        </div>
+
+        <!-- Leyenda -->
+        <div class="validacion-titulo">
+            SISTEMA DE PERMISOS DIGITALES
         </div>
         
-        <!-- Barra Citas Web -->
-        <div class="citas-bar">
-            Citas Web
+        <!-- Título -->
+        <div class="resultado-titulo">
+            PANEL DE ADMINISTRACIÓN
         </div>
-        
-        <!-- Contenido principal -->
-        <div class="main-content">
-            <h1 class="title-main">BIENVENIDO</h1>
-            
-            <div class="subtitle-section">
-                <h2 class="subtitle">BIENVENIDO</h2>
-            </div>
-            
-            <div class="system-box">
-                <div class="building-icon">🏛️</div>
-                <div class="system-name">CMOV</div>
-                <div class="system-desc">Panel de Administración</div>
-            </div>
-            
-            <!-- Error message -->
+
+        <!-- Contenido -->
+        <div class="content">
             {% if request.query_params.get('error') %}
-            <div class="error-box">
-                <span>❌</span>
-                <span>Usuario o contraseña incorrectos</span>
+            <div class="error-msg">
+                ❌ Usuario o contraseña incorrectos
             </div>
             {% endif %}
             
-            <!-- Formulario -->
-            <form method="POST" action="/panel/login" class="form-section">
-                <div class="input-group">
-                    <label class="input-label">
-                        <span class="label-icon">👤</span>
-                        <span>Usuario</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        name="username" 
-                        placeholder="Ingrese su usuario"
-                        required 
-                        autofocus
-                    >
-                </div>
-                
-                <div class="input-group">
-                    <label class="input-label">
-                        <span class="label-icon">🔒</span>
-                        <span>Contraseña</span>
-                    </label>
-                    <input 
-                        type="password" 
-                        name="password" 
-                        placeholder="Ingrese su contraseña"
-                        required
-                    >
-                </div>
-                
-                <button type="submit" class="btn-submit">
-                    <span>🚀</span>
-                    <span>INICIAR SESIÓN</span>
-                </button>
-            </form>
-            
-            <!-- Footer -->
-            <div class="footer-info">
-                <p>
-                    <strong>Sistema de Permisos Digitales</strong>
-                    Coordinación General de Movilidad<br>
-                    Gobierno del Estado de Aguascalientes
-                </p>
+            <div class="login-box">
+                <form method="POST" action="/panel/login">
+                    <div class="form-group">
+                        <label>👤 Usuario</label>
+                        <input type="text" name="username" required autofocus placeholder="Ingrese su usuario">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>🔒 Contraseña</label>
+                        <input type="password" name="password" required placeholder="Ingrese su contraseña">
+                    </div>
+                    
+                    <button type="submit" class="btn-login">INICIAR SESIÓN</button>
+                </form>
             </div>
+        </div>
+
+        <!-- Pie de página -->
+        <div class="footer">
+            <img src="/static/pie.jpg" alt="Pie Aguascalientes" loading="lazy">
         </div>
     </div>
 </body>

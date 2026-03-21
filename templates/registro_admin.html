@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro Manual - Aguascalientes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
+        .container { width:100%; max-width:700px; margin:0 auto; background:#fff; }
+        .header, .footer { width:100%; text-align:center; }
+        .header img, .footer img { width:100%; height:auto; display:block; }
+        
+        .validacion-titulo {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #3B5998;
+            letter-spacing: 2px;
+            margin: 20px 0;
+            padding: 15px;
+            text-transform: uppercase;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .resultado-titulo {
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            color: #3B5998;
+            letter-spacing: 1px;
+            margin: 25px 0 20px 0;
+            padding: 10px;
+            text-transform: uppercase;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        .content { padding:20px; }
+        
+        .btn-back {
+            background:#666; 
+            color:#fff; 
+            padding:12px 24px; 
+            text-decoration:none;
+            border-radius:8px; 
+            font-size:14px; 
+            font-weight:bold; 
+            display:inline-block; 
+            margin-bottom:20px;
+        }
+        
+        .btn-back:hover { background:#444; }
+        
+        .info-box {
+            background:#e3f2fd; 
+            border:3px solid #2196F3; 
+            color:#1565c0;
+            padding:20px; 
+            border-radius:15px; 
+            margin:20px 0; 
+            font-size:14px;
+        }
+        
+        .form-box {
+            background:#e8f5e8; 
+            border:3px solid #3B5998; 
+            padding:30px; 
+            border-radius:15px; 
+            margin:20px 0;
+        }
+        
+        .form-group { 
+            margin:20px 0; 
+        }
+        
+        label {
+            display:block;
+            font-weight:bold;
+            margin-bottom:8px;
+            color:#2d5730;
+            font-size:14px;
+        }
+        
+        .label-optional {
+            color: #999;
+            font-weight: normal;
+            font-size: 12px;
+        }
+        
+        input[type="text"],
+        input[type="date"] {
+            width:100%;
+            padding:12px;
+            border:2px solid #4caf50;
+            border-radius:8px;
+            font-size:15px;
+            box-sizing:border-box;
+        }
+        
+        input:focus {
+            outline:none;
+            border-color:#3B5998;
+        }
+        
+        .btn-submit {
+            background:#4caf50; 
+            color:#fff; 
+            padding:15px 30px; 
+            text-decoration:none;
+            border:none;
+            border-radius:8px; 
+            font-size:16px; 
+            font-weight:bold; 
+            cursor:pointer;
+            width:100%;
+            margin-top:20px;
+        }
+        
+        .btn-submit:hover { background:#45a049; }
+        
+        .error-msg {
+            background:#ffeaea; 
+            border:3px solid #f44336; 
+            color:#8b2635;
+            padding:15px; 
+            border-radius:10px; 
+            margin:20px 0; 
+            font-size:14px; 
+            font-weight:bold;
+            text-align:center;
+        }
+        
+        @media (max-width:600px){
+            .content{ padding:15px; }
+            .form-box{ padding:20px; }
+            .validacion-titulo { font-size: 20px; letter-spacing: 1px; margin: 15px 0; padding: 10px; }
+            .resultado-titulo { font-size: 22px; margin: 20px 0 15px 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" loading="lazy">
+        </div>
+
+        <div class="validacion-titulo">
+            SISTEMA DE PERMISOS DIGITALES
+        </div>
+        
+        <div class="resultado-titulo">
+            REGISTRO MANUAL DE PERMISO
+        </div>
+
+        <div class="content">
+            <a href="/panel/admin" class="btn-back">← Volver al Panel</a>
+            
+            <div class="info-box">
+                ℹ️ <strong>Instrucciones:</strong><br>
+                • Deja el folio vacío para generar uno automático<br>
+                • Las fechas vacías se calculan automáticamente (hoy + 30 días)
+            </div>
+            
+            {% if request.query_params.get('error') %}
+            <div class="error-msg">❌ Error al crear el permiso</div>
+            {% endif %}
+            
+            <div class="form-box">
+                <form method="POST" action="/panel/registro_admin">
+                    <div class="form-group">
+                        <label>Folio <span class="label-optional">(opcional - dejar vacío para autogenerar)</span></label>
+                        <input type="text" name="folio" placeholder="654XXX o dejar vacío">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Marca *</label>
+                        <input type="text" name="marca" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Línea *</label>
+                        <input type="text" name="linea" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Año *</label>
+                        <input type="text" name="anio" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Color *</label>
+                        <input type="text" name="color" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Número de Serie *</label>
+                        <input type="text" name="numero_serie" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Número de Motor *</label>
+                        <input type="text" name="numero_motor" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Titular / Contribuyente *</label>
+                        <input type="text" name="contribuyente" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Fecha de Expedición <span class="label-optional">(opcional - hoy por defecto)</span></label>
+                        <input type="date" name="fecha_expedicion">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Fecha de Vencimiento <span class="label-optional">(opcional - +30 días por defecto)</span></label>
+                        <input type="date" name="fecha_vencimiento">
+                    </div>
+                    
+                    <button type="submit" class="btn-submit">✅ Crear Permiso</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="footer">
+            <img src="/static/pie.jpg" alt="Pie Aguascalientes" loading="lazy">
+        </div>
+    </div>
+</body>
+</html>

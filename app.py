@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
@@ -18,8 +19,8 @@ from PIL import Image
 import qrcode
 from io import BytesIO
 import html
-from jinja2 import Environment, FileSystemLoader
 import fitz
+from starlette.middleware.sessions import SessionMiddleware
 
 # ===================== CONFIGURACIÓN =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
@@ -39,7 +40,7 @@ os.makedirs(TEMPLATES_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 bot = Bot(token=BOT_TOKEN)
@@ -55,12 +56,10 @@ CONSECUTIVOS_INICIALES = {
 }
 
 def obtener_siguiente_consecutivo(tipo: str) -> int:
-    """Obtiene el siguiente consecutivo de Supabase con reintentos anti-duplicación"""
     max_intentos = 1000
     
     for intento in range(max_intentos):
         try:
-            # Obtener el último consecutivo usado
             resp = supabase.table("consecutivos_ags") \
                 .select("valor") \
                 .eq("tipo", tipo) \
@@ -74,7 +73,6 @@ def obtener_siguiente_consecutivo(tipo: str) -> int:
             else:
                 siguiente = CONSECUTIVOS_INICIALES[tipo]
             
-            # Intentar insertar el nuevo consecutivo
             supabase.table("consecutivos_ags").insert({
                 "tipo": tipo,
                 "valor": siguiente,
@@ -93,7 +91,6 @@ def obtener_siguiente_consecutivo(tipo: str) -> int:
                 print(f"[CONSECUTIVO] Error en {tipo}: {e}")
                 raise e
     
-    # Fallback después de todos los intentos
     print(f"[CONSECUTIVO] FALLBACK para {tipo} después de {max_intentos} intentos")
     return CONSECUTIVOS_INICIALES[tipo] + random.randint(1000, 9999)
 
@@ -102,7 +99,6 @@ timers_activos = {}
 user_folios = {}
 
 async def eliminar_folio_automatico(folio: str):
-    """Elimina folio automáticamente después de 36 horas"""
     try:
         user_id = None
         if folio in timers_activos:
@@ -124,7 +120,6 @@ async def eliminar_folio_automatico(folio: str):
         print(f"Error eliminando folio {folio}: {e}")
 
 async def enviar_recordatorio(folio: str, minutos_restantes: int):
-    """Envía recordatorios de pago"""
     try:
         if folio not in timers_activos:
             return
@@ -144,13 +139,11 @@ async def enviar_recordatorio(folio: str, minutos_restantes: int):
         print(f"Error enviando recordatorio para folio {folio}: {e}")
 
 async def iniciar_timer_36h(user_id: int, folio: str):
-    """Inicia el timer de 36 horas con recordatorios progresivos"""
     async def timer_task():
         start_time = datetime.now()
         print(f"[TIMER] Iniciado para folio {folio}, usuario {user_id} (36 horas)")
         
         await asyncio.sleep(34.5 * 3600)
-
         if folio not in timers_activos:
             return
         await enviar_recordatorio(folio, 90)
@@ -189,7 +182,6 @@ async def iniciar_timer_36h(user_id: int, folio: str):
     print(f"[SISTEMA] Timer 36h iniciado para folio {folio}, total timers: {len(timers_activos)}")
 
 def cancelar_timer_folio(folio: str):
-    """Cancela el timer de un folio específico cuando el usuario paga"""
     if folio in timers_activos:
         timers_activos[folio]["task"].cancel()
         user_id = timers_activos[folio]["user_id"]
@@ -205,7 +197,6 @@ def cancelar_timer_folio(folio: str):
     return False
 
 def limpiar_timer_folio(folio: str):
-    """Limpia todas las referencias de un folio tras expirar"""
     if folio in timers_activos:
         user_id = timers_activos[folio]["user_id"]
         del timers_activos[folio]
@@ -216,7 +207,6 @@ def limpiar_timer_folio(folio: str):
                 del user_folios[user_id]
 
 def obtener_folios_usuario(user_id: int):
-    """Obtiene la lista de folios activos de un usuario"""
     return user_folios.get(user_id, [])
 
 # ===================== FUNCIONES AUXILIARES =====================
@@ -227,7 +217,6 @@ def limpiar_entrada(texto: str) -> str:
     return texto_limpio.strip().upper()
 
 def generar_folio_ags():
-    """Genera folio único con prefijo 654 verificando duplicados (hasta 10000 intentos)"""
     prefijo = "654"
     max_intentos = 10000
     
@@ -276,12 +265,10 @@ def generar_folio_ags():
         return f"{prefijo}{random.randint(1, 9999)}"
 
 def formatear_folio_completo(folio: str) -> str:
-    """Genera el formato completo del folio: AGS  / (folio) / 2026"""
     año_actual = datetime.now().year
     return f"AGS  / {folio} / {año_actual}"
 
 def generar_qr_simple_ags(folio):
-    """Genera QR que apunta al endpoint de consulta"""
     try:
         url_estado = f"{BASE_URL}/estado_folio/{folio}"
         qr = qrcode.QRCode(
@@ -297,79 +284,27 @@ def generar_qr_simple_ags(folio):
         print(f"[QR] Error: {e}")
         return None
 
-def renderizar_resultado_consulta(row, vigente=True):
-    """Renderiza el template HTML con los datos del folio"""
-    try:
-        template = jinja_env.get_template('resultado_consulta.html')
-        
-        fecha_exp = row.get('fecha_expedicion', '')
-        if fecha_exp:
-            try:
-                fecha_exp_dt = datetime.fromisoformat(fecha_exp)
-                fecha_exp = fecha_exp_dt.strftime("%d/%m/%Y")
-            except:
-                pass
-        
-        fecha_ven = row.get('fecha_vencimiento', '')
-        if fecha_ven:
-            try:
-                fecha_ven_dt = datetime.fromisoformat(fecha_ven)
-                fecha_ven = fecha_ven_dt.strftime("%d/%m/%Y")
-            except:
-                pass
-        
-        folio_completo = formatear_folio_completo(row.get('folio', ''))
-        
-        datos = {
-            'folio': row.get('folio', ''),
-            'folio_completo': folio_completo,
-            'marca': row.get('marca', ''),
-            'linea': row.get('linea', ''),
-            'anio': row.get('anio', ''),
-            'serie': row.get('numero_serie', ''),
-            'motor': row.get('numero_motor', ''),
-            'color': row.get('color', ''),
-            'nombre': row.get('contribuyente', ''),
-            'vigencia': 'VIGENTE' if vigente else 'VENCIDO',
-            'expedicion': fecha_exp,
-            'vencimiento': fecha_ven,
-            'vigente': vigente
-        }
-        
-        return template.render(**datos)
-        
-    except Exception as e:
-        print(f"[TEMPLATE] Error renderizando: {e}")
-        return f"<html><body><h1>Error al renderizar template: {e}</h1></body></html>"
-
 def generar_pdf_unificado_ags(datos: dict) -> str:
-    """Genera PDF unificado: PERMISO (página 1) + RECIBO (página 2)"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
     
     try:
-        # ===== GENERAR CONSECUTIVOS =====
         recibo_ingreso = obtener_siguiente_consecutivo("recibo_ingreso")
         pase_caja = obtener_siguiente_consecutivo("pase_caja")
         numero_1 = obtener_siguiente_consecutivo("numero_1")
         numero_2 = obtener_siguiente_consecutivo("numero_2")
         
-        # ===== EXTRAER ÚLTIMOS 4 DÍGITOS DE SERIE =====
         serie_completa = datos["serie"]
         ultimos_4_serie = serie_completa[-4:] if len(serie_completa) >= 4 else serie_completa
         
-        # ===== FORMATO FECHA/HORA =====
         fecha_hora_dt = datos['fecha_exp_dt']
-        # Formato: 04/03/2026 10:20 p. m.
         hora_formateada = fecha_hora_dt.strftime("%I:%M %p").lower().replace("am", "a. m.").replace("pm", "p. m.")
         fecha_hora_completa = f"{fecha_hora_dt.strftime('%d/%m/%Y')} {hora_formateada}"
         
-        # ===== RFC GENÉRICO =====
         rfc_generico = "XAXX010101000"
         
         folio_completo = formatear_folio_completo(datos["folio"])
         
-        # ===== PÁGINA 1: PERMISO =====
         if os.path.exists(PLANTILLA_PDF):
             doc_permiso = fitz.open(PLANTILLA_PDF)
             pg_permiso = doc_permiso[0]
@@ -416,9 +351,6 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
             put("fecha_exp_larga", fecha_espaciada(datos['fecha_exp_dt']))
             put("fecha_ven_larga", fecha_espaciada(datos['fecha_ven_dt']))
             
-            # ========================================
-            # 🔧 AJUSTES DEL QR - EDITA AQUÍ
-            # ========================================
             try:
                 img_qr = generar_qr_simple_ags(datos["folio"])
                 if img_qr:
@@ -427,103 +359,73 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
                     buf.seek(0)
                     qr_pix = fitz.Pixmap(buf.read())
                     
-                    # 📍 COORDENADAS DEL QR (EDITA ESTOS VALORES)
-                    # qr_x: Mover IZQUIERDA (menor número) o DERECHA (mayor número)
-                    # qr_y: Mover ARRIBA (menor número) o ABAJO (mayor número)
-                    qr_x = 975  # ← Cambia este número para mover HORIZONTAL
-                    qr_y = 130  # ← Cambia este número para mover VERTICAL (número menor = más arriba)
-                    
-                    # 📏 TAMAÑO DEL QR (EDITA ESTE VALOR)
-                    # qr_width/qr_height: Número mayor = QR más grande, número menor = QR más chico
-                    qr_width = qr_height = 138  # ← Cambia este número para TAMAÑO (126.5 = 10% más grande que 115)
-                    # Ejemplos:
-                    # 115 = tamaño original
-                    # 126.5 = 10% más grande
-                    # 138 = 20% más grande
-                    # 103.5 = 10% más chico
+                    qr_x = 975
+                    qr_y = 130
+                    qr_width = qr_height = 138
                     
                     rect = fitz.Rect(qr_x, qr_y, qr_x + qr_width, qr_y + qr_height)
                     pg_permiso.insert_image(rect, pixmap=qr_pix, overlay=True)
             except Exception as e:
                 print(f"[PDF] Error agregando QR: {e}")
-            # ========================================
-            # FIN AJUSTES DEL QR
-            # ========================================
             
         else:
-            # Plantilla básica si no existe
             doc_permiso = fitz.open()
             pg_permiso = doc_permiso.new_page(width=595, height=842)
             pg_permiso.insert_text((50, 50), "PERMISO AGUASCALIENTES (Plantilla no encontrada)", fontsize=20)
         
-        # ===== PÁGINA 2: RECIBO =====
         if os.path.exists(PLANTILLA_RECIBO):
             doc_recibo = fitz.open(PLANTILLA_RECIBO)
             pg_recibo = doc_recibo[0]
             
-            # ========================================
-            # 📍 COORDENADAS DEL RECIBO - NO TOCAR
-            # ========================================
             coords_recibo = {
-                "recibo_ingreso_1": (469, 62, 10, (0, 0, 0)),  # Primera aparición
-                "recibo_ingreso_2": (462, 771, 8, (0, 0, 0)),  # Segunda aparición
-                "serie_folio": (469, 70, 7, (0, 0, 0)),       # Últimos 4 de serie + folio
-                "pase_caja": (469, 83, 8, (0, 0, 0)),         # Pase a caja
-                "fecha_hora": (469, 93, 7, (0, 0, 0)),        # Fecha y hora
-                "rfc": (70, 165, 8, (0, 0, 0)),               # RFC
-                "nombre": (70, 178, 8, (0, 0, 0)),            # Nombre
-                "numero_1": (149, 291, 5, (0, 0, 0)),          # Primer número
-                "numero_2": (190, 291, 5, (0, 0, 0)),          # Segundo número
+                "recibo_ingreso_1": (469, 62, 10, (0, 0, 0)),
+                "recibo_ingreso_2": (462, 771, 8, (0, 0, 0)),
+                "serie_folio": (469, 70, 7, (0, 0, 0)),
+                "pase_caja": (469, 83, 8, (0, 0, 0)),
+                "fecha_hora": (469, 93, 7, (0, 0, 0)),
+                "rfc": (70, 165, 8, (0, 0, 0)),
+                "nombre": (70, 178, 8, (0, 0, 0)),
+                "numero_1": (149, 291, 5, (0, 0, 0)),
+                "numero_2": (190, 291, 5, (0, 0, 0)),
             }
-            # ========================================
             
-            # Insertar recibo de ingreso (NEGRITA solo el primero)
             x1, y1, s1, col1 = coords_recibo["recibo_ingreso_1"]
-            pg_recibo.insert_text((x1, y1), str(recibo_ingreso), fontsize=s1, color=col1, fontname="hebo")  # BOLD
+            pg_recibo.insert_text((x1, y1), str(recibo_ingreso), fontsize=s1, color=col1, fontname="hebo")
             
             x2, y2, s2, col2 = coords_recibo["recibo_ingreso_2"]
             pg_recibo.insert_text((x2, y2), str(recibo_ingreso), fontsize=s2, color=col2)
             
-            # Serie y folio
             serie_folio_texto = f"{ultimos_4_serie}  {datos['folio']}"
             x, y, s, col = coords_recibo["serie_folio"]
             pg_recibo.insert_text((x, y), serie_folio_texto, fontsize=s, color=col)
             
-            # Pase a caja
             x, y, s, col = coords_recibo["pase_caja"]
             pg_recibo.insert_text((x, y), str(pase_caja), fontsize=s, color=col)
             
-            # Fecha y hora
             x, y, s, col = coords_recibo["fecha_hora"]
             pg_recibo.insert_text((x, y), fecha_hora_completa, fontsize=s, color=col)
             
-            # RFC
             x, y, s, col = coords_recibo["rfc"]
             pg_recibo.insert_text((x, y), rfc_generico, fontsize=s, color=col)
             
-            # Nombre
             x, y, s, col = coords_recibo["nombre"]
             pg_recibo.insert_text((x, y), datos["nombre"], fontsize=s, color=col)
             
-            # Números finales
             x1, y1, s1, col1 = coords_recibo["numero_1"]
             pg_recibo.insert_text((x1, y1), str(numero_1), fontsize=s1, color=col1)
             
             x2, y2, s2, col2 = coords_recibo["numero_2"]
             pg_recibo.insert_text((x2, y2), str(numero_2), fontsize=s2, color=col2)
         else:
-            # Plantilla básica si no existe
             doc_recibo = fitz.open()
             pg_recibo = doc_recibo.new_page(width=595, height=842)
             pg_recibo.insert_text((50, 50), "RECIBO DE PAGO (Plantilla no encontrada)", fontsize=20)
         
-        # ===== UNIFICAR PDFS =====
         doc_final = fitz.open()
-        doc_final.insert_pdf(doc_permiso)  # Página 1: Permiso
-        doc_final.insert_pdf(doc_recibo)   # Página 2: Recibo
+        doc_final.insert_pdf(doc_permiso)
+        doc_final.insert_pdf(doc_recibo)
         doc_final.save(out)
         
-        # Cerrar documentos
         doc_final.close()
         doc_permiso.close()
         if os.path.exists(PLANTILLA_RECIBO):
@@ -645,7 +547,6 @@ async def get_nombre(message: types.Message, state: FSMContext):
     try:
         pdf_path = generar_pdf_unificado_ags(datos)
 
-        # BOTONES INLINE
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="🔑 Validar Admin", callback_data=f"validar_{datos['folio']}"),
@@ -693,7 +594,6 @@ async def get_nombre(message: types.Message, state: FSMContext):
     finally:
         await state.clear()
 
-# ------------ CALLBACK HANDLERS (BOTONES) ------------
 @dp.callback_query(lambda c: c.data and c.data.startswith("validar_"))
 async def callback_validar_admin(callback: CallbackQuery):
     folio = callback.data.replace("validar_", "")
@@ -798,7 +698,6 @@ async def recibir_comprobante(message: types.Message):
 
 @dp.message(lambda m: m.text and m.text.strip().upper().startswith("SERO"))
 async def codigo_admin(message: types.Message):
-    """Comando SERO + folio para validar manualmente"""
     texto = message.text.strip().upper()
     folio = texto.replace("SERO", "", 1).strip()
     
@@ -859,7 +758,7 @@ async def ver_folios_activos(message: types.Message):
 async def fallback(message: types.Message):
     await message.answer("🏛️ Sistema Digital Aguascalientes.")
 
-# ===================== FASTAPI =====================
+# ===================== FASTAPI + PANEL WEB =====================
 async def keep_alive():
     while True:
         await asyncio.sleep(600)
@@ -879,13 +778,265 @@ async def lifespan(app: FastAPI):
             await _keep_task
     await bot.session.close()
 
-app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="5.0.0")
+app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="6.0.0")
 
+app.add_middleware(SessionMiddleware, secret_key="tu_clave_secreta_super_segura_123456")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _keep_task = None
 
-# ===================== ENDPOINTS =====================
+# ===================== RUTAS WEB (PANEL ADMINISTRACIÓN) =====================
+
+@app.get("/panel/login", response_class=HTMLResponse)
+async def login_get(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/panel/login")
+async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
+    # Admin hardcoded
+    if username == "admin_ags" and password == "AGS2026seguro":
+        request.session["admin"] = True
+        request.session["username"] = username
+        return RedirectResponse(url="/panel/admin", status_code=303)
+    
+    return RedirectResponse(url="/panel/login?error=1", status_code=303)
+
+@app.get("/panel/admin", response_class=HTMLResponse)
+async def panel_admin(request: Request):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    return templates.TemplateResponse("panel.html", {"request": request})
+
+@app.get("/panel/admin_folios", response_class=HTMLResponse)
+async def admin_folios_get(request: Request):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    # Obtener todos los folios de AGS
+    folios_data = supabase.table("folios_registrados")\
+        .select("*")\
+        .eq("entidad", ENTIDAD)\
+        .order("fecha_expedicion", desc=True)\
+        .execute()
+    
+    folios = folios_data.data or []
+    
+    # Calcular estado
+    hoy = datetime.now(ZoneInfo(TZ)).date()
+    for f in folios:
+        try:
+            fecha_ven = datetime.fromisoformat(f['fecha_vencimiento']).date()
+            f['estado_calc'] = "VIGENTE" if hoy <= fecha_ven else "VENCIDO"
+        except:
+            f['estado_calc'] = "ERROR"
+    
+    return templates.TemplateResponse("admin_folios.html", {
+        "request": request,
+        "folios": folios
+    })
+
+@app.get("/panel/admin_tablas", response_class=HTMLResponse)
+async def admin_tablas_get(request: Request):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    tablas = {
+        'folios_registrados': 'Folios Registrados',
+        'consecutivos_ags': 'Consecutivos AGS'
+    }
+    
+    return templates.TemplateResponse("admin_tablas.html", {
+        "request": request,
+        "tablas": tablas
+    })
+
+@app.get("/panel/admin_tabla/{tabla}", response_class=HTMLResponse)
+async def admin_tabla_detalle(request: Request, tabla: str):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    try:
+        registros_data = supabase.table(tabla).select("*").execute()
+        registros = registros_data.data or []
+    except:
+        registros = []
+    
+    return templates.TemplateResponse("admin_tabla_detalle.html", {
+        "request": request,
+        "tabla": tabla,
+        "registros": registros
+    })
+
+@app.get("/panel/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/panel/login", status_code=303)
+
+# ===================== RUTAS ADICIONALES - EDICIÓN Y ELIMINACIÓN =====================
+
+@app.get("/panel/editar_folio/{folio}", response_class=HTMLResponse)
+async def editar_folio_get(request: Request, folio: str):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    try:
+        res = supabase.table("folios_registrados").select("*").eq("folio", folio).limit(1).execute()
+        registro = (res.data or [None])[0]
+        
+        if not registro:
+            return RedirectResponse(url="/panel/admin_folios?error=not_found", status_code=303)
+        
+        return templates.TemplateResponse("editar_folio.html", {
+            "request": request,
+            "registro": registro
+        })
+    except Exception as e:
+        print(f"Error obteniendo folio: {e}")
+        return RedirectResponse(url="/panel/admin_folios?error=1", status_code=303)
+
+@app.post("/panel/editar_folio/{folio}")
+async def editar_folio_post(
+    request: Request,
+    folio: str,
+    marca: str = Form(...),
+    linea: str = Form(...),
+    anio: str = Form(...),
+    numero_serie: str = Form(...),
+    numero_motor: str = Form(...),
+    color: str = Form(...),
+    contribuyente: str = Form(...),
+    fecha_expedicion: str = Form(...),
+    fecha_vencimiento: str = Form(...),
+    estado: str = Form(...)
+):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    try:
+        supabase.table("folios_registrados").update({
+            "marca": marca.upper(),
+            "linea": linea.upper(),
+            "anio": anio,
+            "numero_serie": numero_serie.upper(),
+            "numero_motor": numero_motor.upper(),
+            "color": color.upper(),
+            "contribuyente": contribuyente.upper(),
+            "fecha_expedicion": fecha_expedicion,
+            "fecha_vencimiento": fecha_vencimiento,
+            "estado": estado
+        }).eq("folio", folio).execute()
+        
+        return RedirectResponse(url="/panel/admin_folios?success=1", status_code=303)
+    except Exception as e:
+        print(f"Error actualizando folio: {e}")
+        return RedirectResponse(url=f"/panel/editar_folio/{folio}?error=1", status_code=303)
+
+@app.post("/panel/eliminar_folio/{folio}")
+async def eliminar_folio(request: Request, folio: str):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    try:
+        # Cancelar timer si existe
+        cancelar_timer_folio(folio)
+        
+        # Eliminar de base de datos
+        supabase.table("folios_registrados").delete().eq("folio", folio).execute()
+        
+        return RedirectResponse(url="/panel/admin_folios?deleted=1", status_code=303)
+    except Exception as e:
+        print(f"Error eliminando folio: {e}")
+        return RedirectResponse(url="/panel/admin_folios?error=delete", status_code=303)
+
+@app.get("/panel/registro_admin", response_class=HTMLResponse)
+async def registro_admin_get(request: Request):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    return templates.TemplateResponse("registro_admin.html", {"request": request})
+
+@app.post("/panel/registro_admin")
+async def registro_admin_post(
+    request: Request,
+    folio: str = Form(None),
+    marca: str = Form(...),
+    linea: str = Form(...),
+    anio: str = Form(...),
+    numero_serie: str = Form(...),
+    numero_motor: str = Form(...),
+    color: str = Form(...),
+    contribuyente: str = Form(...),
+    fecha_expedicion: str = Form(None),
+    fecha_vencimiento: str = Form(None)
+):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    try:
+        tz = ZoneInfo(TZ)
+        
+        # Si no hay folio, generar uno
+        if not folio or folio.strip() == "":
+            folio_generado = generar_folio_ags()
+        else:
+            folio_generado = folio.strip()
+        
+        # Si no hay fecha de expedición, usar hoy
+        if not fecha_expedicion or fecha_expedicion.strip() == "":
+            fecha_exp = datetime.now(tz).date()
+        else:
+            fecha_exp = datetime.fromisoformat(fecha_expedicion).date()
+        
+        # Si no hay fecha de vencimiento, calcular 30 días después de expedición
+        if not fecha_vencimiento or fecha_vencimiento.strip() == "":
+            fecha_ven = fecha_exp + timedelta(days=30)
+        else:
+            fecha_ven = datetime.fromisoformat(fecha_vencimiento).date()
+        
+        # Preparar datos para PDF
+        datos_pdf = {
+            "folio": folio_generado,
+            "marca": marca.upper(),
+            "linea": linea.upper(),
+            "anio": anio,
+            "serie": numero_serie.upper(),
+            "motor": numero_motor.upper(),
+            "color": color.upper(),
+            "nombre": contribuyente.upper(),
+            "fecha_exp": fecha_exp.strftime("%d/%m/%Y"),
+            "fecha_ven": fecha_ven.strftime("%d/%m/%Y"),
+            "fecha_exp_dt": datetime.combine(fecha_exp, datetime.min.time()).replace(tzinfo=tz),
+            "fecha_ven_dt": datetime.combine(fecha_ven, datetime.min.time()).replace(tzinfo=tz)
+        }
+        
+        # Generar PDF
+        pdf_path = generar_pdf_unificado_ags(datos_pdf)
+        
+        # Insertar en base de datos
+        supabase.table("folios_registrados").insert({
+            "folio": folio_generado,
+            "marca": marca.upper(),
+            "linea": linea.upper(),
+            "anio": anio,
+            "numero_serie": numero_serie.upper(),
+            "numero_motor": numero_motor.upper(),
+            "color": color.upper(),
+            "contribuyente": contribuyente.upper(),
+            "fecha_expedicion": fecha_exp.isoformat(),
+            "fecha_vencimiento": fecha_ven.isoformat(),
+            "entidad": ENTIDAD,
+            "estado": "VALIDADO_ADMIN",
+            "creado_por": request.session.get("username", "admin")
+        }).execute()
+        
+        return RedirectResponse(url=f"/panel/admin_folios?success=created&folio={folio_generado}", status_code=303)
+        
+    except Exception as e:
+        print(f"Error en registro admin: {e}")
+        return RedirectResponse(url="/panel/registro_admin?error=1", status_code=303)
+
+# ===================== ENDPOINTS TELEGRAM =====================
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
@@ -899,7 +1050,7 @@ async def telegram_webhook(request: Request):
         return {"ok": False, "error": str(e)}
 
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
-async def estado_folio(folio: str):
+async def estado_folio(folio: str, request: Request):
     try:
         print(f"[CONSULTA] Consultando folio: {folio}")
         
@@ -908,66 +1059,48 @@ async def estado_folio(folio: str):
         row = (res.data or [None])[0]
         
         if not row:
-            print(f"[CONSULTA] Folio no encontrado: {folio_limpio}")
-            return HTMLResponse("""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Folio No Encontrado</title>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; text-align: center; }
-                    .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
-                    .error { background: #ffebee; color: #c62828; padding: 20px; border-radius: 8px; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="error">
-                        <h2>❌ Folio No Encontrado</h2>
-                        <p>El folio consultado no existe en el sistema.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """, status_code=404)
+            return templates.TemplateResponse("resultado_consulta.html", {
+                "request": request,
+                "folio": folio_limpio,
+                "vigente": False,
+                "marca": "",
+                "linea": "",
+                "anio": "",
+                "serie": "",
+                "motor": "",
+                "color": "",
+                "nombre": "",
+                "expedicion": "",
+                "vencimiento": "",
+                "no_encontrado": True
+            })
         
         hoy = datetime.now(ZoneInfo(TZ)).date()
         fecha_ven = datetime.fromisoformat(row['fecha_vencimiento']).date()
         vigente = hoy <= fecha_ven
         
-        print(f"[CONSULTA] Folio encontrado: {folio_limpio}, Vigente: {vigente}")
+        fecha_exp = datetime.fromisoformat(row['fecha_expedicion']).strftime('%d/%m/%Y')
+        fecha_ven_str = fecha_ven.strftime('%d/%m/%Y')
         
-        html_resultado = renderizar_resultado_consulta(row, vigente)
-        return HTMLResponse(html_resultado)
+        return templates.TemplateResponse("resultado_consulta.html", {
+            "request": request,
+            "folio": folio_limpio,
+            "vigente": vigente,
+            "marca": row.get('marca', ''),
+            "linea": row.get('linea', ''),
+            "anio": row.get('anio', ''),
+            "serie": row.get('numero_serie', ''),
+            "motor": row.get('numero_motor', ''),
+            "color": row.get('color', ''),
+            "nombre": row.get('contribuyente', ''),
+            "expedicion": fecha_exp,
+            "vencimiento": fecha_ven_str,
+            "no_encontrado": False
+        })
         
     except Exception as e:
         print(f"[CONSULTA] Error: {e}")
-        return HTMLResponse(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Error del Sistema</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; text-align: center; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }}
-                .error {{ background: #ffebee; color: #c62828; padding: 20px; border-radius: 8px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="error">
-                    <h2>⚠️ Error del Sistema</h2>
-                    <p>Ocurrió un error al consultar el folio. Intenta más tarde.</p>
-                    <p><small>Error: {str(e)}</small></p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """, status_code=500)
+        return HTMLResponse(f"Error: {str(e)}", status_code=500)
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -1003,6 +1136,7 @@ async def root():
                 margin: 20px 0; 
                 color: #2d5730;
             }}
+            a {{ color: #3B5998; text-decoration: none; font-weight: bold; }}
         </style>
     </head>
     <body>
@@ -1014,7 +1148,7 @@ async def root():
                 <h3>📊 Estado del Sistema</h3>
                 <ul style="text-align: left;">
                     <li><strong>Estado:</strong> ✅ En línea</li>
-                    <li><strong>Versión:</strong> 5.0 - PDF Unificado + Recibo</li>
+                    <li><strong>Versión:</strong> 6.0 - Panel Web + Bot</li>
                     <li><strong>Costo:</strong> ${PRECIO_PERMISO} MXN</li>
                     <li><strong>Tiempo límite:</strong> 36 horas</li>
                     <li><strong>Timers activos:</strong> {len(timers_activos)}</li>
@@ -1022,6 +1156,7 @@ async def root():
             </div>
             
             <p>Para obtener tu permiso, inicia una conversación en nuestro bot de Telegram.</p>
+            <p><a href="/panel/login">→ Acceder al Panel de Administración</a></p>
         </div>
     </body>
     </html>
@@ -1039,7 +1174,7 @@ async def health_check():
         return {
             "status": "healthy",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "version": "5.0 - PDF Unificado + Recibo",
+            "version": "6.0 - Panel Web + Bot",
             "services": {
                 "database": db_status,
                 "telegram_bot": bot_status,
@@ -1056,8 +1191,7 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"[SISTEMA] Iniciando Bot Permisos Aguascalientes v5.0...")
+    print(f"[SISTEMA] Iniciando Bot + Panel Aguascalientes v6.0...")
     print(f"[SISTEMA] Base URL: {BASE_URL}")
-    print(f"[SISTEMA] PDF UNIFICADO: Permiso + Recibo")
-    print(f"[SISTEMA] Consecutivos: ACTIVOS")
+    print(f"[SISTEMA] Panel Web: {BASE_URL}/panel/login")
     uvicorn.run(app, host="0.0.0.0", port=8000)

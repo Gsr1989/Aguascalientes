@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gestión de Tablas - Aguascalientes</title>
+    <title>Administración de Folios - Aguascalientes</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
-        .container { width:100%; max-width:700px; margin:0 auto; background:#fff; }
+        .container { width:100%; max-width:1200px; margin:0 auto; background:#fff; }
         .header, .footer { width:100%; text-align:center; }
         .header img, .footer img { width:100%; height:auto; display:block; }
         
@@ -51,55 +51,201 @@
         
         .btn-back:hover { background:#444; }
         
-        .table-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            margin: 20px 0;
+        .stats-box {
+            background:#e8f5e8; 
+            border:3px solid #4caf50; 
+            color:#2d5730;
+            padding:20px; 
+            border-radius:15px; 
+            margin:20px 0; 
+            font-size:18px; 
+            font-weight:bold;
+            text-align:center;
         }
         
-        .table-item {
+        /* BUSCADOR */
+        .search-box {
             background:#e8f5e8; 
             border:3px solid #3B5998; 
             padding:25px; 
-            border-radius:15px;
-            text-decoration: none;
-            color: #2d5730;
-            display: block;
-            transition: all 0.3s;
+            border-radius:15px; 
+            margin:20px 0;
         }
         
-        .table-item:hover {
-            background:#d4edd4;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(59, 89, 152, 0.2);
-        }
-        
-        .table-icon {
-            font-size: 40px;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        
-        .table-name {
-            font-size: 20px;
+        .search-title {
+            font-size: 18px;
             font-weight: bold;
-            text-align: center;
             color: #3B5998;
-            margin-bottom: 5px;
+            margin-bottom: 15px;
+            text-align: center;
         }
         
-        .table-desc {
-            font-size: 14px;
-            text-align: center;
+        .search-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .search-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .search-label {
+            display: block;
+            font-weight: bold;
             color: #2d5730;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        #searchInput:focus {
+            outline: none;
+            border-color: #3B5998;
+            box-shadow: 0 0 0 3px rgba(59, 89, 152, 0.1);
+        }
+        
+        #searchField {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            background: white;
+            cursor: pointer;
+        }
+        
+        #searchField:focus {
+            outline: none;
+            border-color: #3B5998;
+        }
+        
+        .search-results {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #2d5730;
+            font-weight: bold;
+        }
+        
+        .highlight {
+            background: #ffeb3b;
+            font-weight: bold;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            border: 3px solid #3B5998;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #3B5998;
+            color: white;
+        }
+        
+        th {
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #ddd;
+        }
+        
+        tbody tr:hover {
+            background: #f5f5f5;
+        }
+        
+        tbody tr.hidden {
+            display: none;
+        }
+        
+        td {
+            padding: 10px;
+            font-size: 13px;
+        }
+        
+        .badge-vigente {
+            background: #4caf50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge-vencido {
+            background: #f44336;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .btn-editar {
+            background: #2196F3;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        
+        .btn-eliminar {
+            background: #f44336;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 16px;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #f44336;
+            font-size: 16px;
+            font-weight: bold;
+            display: none;
         }
         
         @media (max-width:600px){
             .content{ padding:15px; }
             .validacion-titulo { font-size: 20px; letter-spacing: 1px; margin: 15px 0; padding: 10px; }
             .resultado-titulo { font-size: 22px; margin: 20px 0 15px 0; }
-            .table-item { padding: 20px; }
+            th, td { padding: 8px; font-size: 12px; }
+            .search-controls { flex-direction: column; }
+            .search-group { min-width: 100%; }
         }
     </style>
 </head>
@@ -114,26 +260,192 @@
         </div>
         
         <div class="resultado-titulo">
-            GESTIÓN DE TABLAS
+            ADMINISTRACIÓN DE FOLIOS
         </div>
 
         <div class="content">
             <a href="/panel/admin" class="btn-back">← Volver al Panel</a>
             
-            <div class="table-grid">
-                {% for tabla_key, tabla_nombre in tablas.items() %}
-                <a href="/panel/admin_tabla/{{ tabla_key }}" class="table-item">
-                    <div class="table-icon">🗂️</div>
-                    <div class="table-name">{{ tabla_nombre }}</div>
-                    <div class="table-desc">Ver todos los registros</div>
-                </a>
-                {% endfor %}
+            <div class="stats-box">
+                📊 Total de Folios Registrados: <span id="totalFolios">{{ folios|length }}</span>
             </div>
+            
+            <!-- BUSCADOR -->
+            <div class="search-box">
+                <div class="search-title">🔍 BUSCADOR DE FOLIOS</div>
+                
+                <div class="search-controls">
+                    <div class="search-group" style="flex: 2;">
+                        <label class="search-label">Buscar:</label>
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="Escribe para buscar..."
+                            autocomplete="off"
+                        >
+                    </div>
+                    
+                    <div class="search-group" style="flex: 1;">
+                        <label class="search-label">Buscar por:</label>
+                        <select id="searchField">
+                            <option value="numero_serie">Serie</option>
+                            <option value="folio">Folio</option>
+                            <option value="contribuyente">Nombre</option>
+                            <option value="marca">Marca</option>
+                            <option value="linea">Línea</option>
+                            <option value="numero_motor">Motor</option>
+                            <option value="color">Color</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            
+            {% if folios %}
+            <div class="table-container">
+                <table id="foliosTable">
+                    <thead>
+                        <tr>
+                            <th>Acciones</th>
+                            <th>Folio</th>
+                            <th>Estado</th>
+                            <th>Marca</th>
+                            <th>Línea</th>
+                            <th>Año</th>
+                            <th>Serie</th>
+                            <th>Motor</th>
+                            <th>Color</th>
+                            <th>Titular</th>
+                            <th>Expedición</th>
+                            <th>Vencimiento</th>
+                        </tr>
+                    </thead>
+                    <tbody id="foliosBody">
+                        {% for folio in folios %}
+                        <tr 
+                            data-folio="{{ folio.folio }}"
+                            data-numero_serie="{{ folio.numero_serie }}"
+                            data-contribuyente="{{ folio.contribuyente }}"
+                            data-marca="{{ folio.marca }}"
+                            data-linea="{{ folio.linea }}"
+                            data-numero_motor="{{ folio.numero_motor }}"
+                            data-color="{{ folio.color }}"
+                        >
+                            <td style="white-space: nowrap;">
+                                <a href="/panel/editar_folio/{{ folio.folio }}" class="btn-editar">✏️ Editar</a>
+                                <form method="POST" action="/panel/eliminar_folio/{{ folio.folio }}" style="display: inline;" onsubmit="return confirm('¿Eliminar folio {{ folio.folio }}?');">
+                                    <button type="submit" class="btn-eliminar">🗑️ Eliminar</button>
+                                </form>
+                            </td>
+                            <td><strong>{{ folio.folio }}</strong></td>
+                            <td>
+                                {% if folio.estado_calc == 'VIGENTE' %}
+                                <span class="badge-vigente">✅ VIGENTE</span>
+                                {% else %}
+                                <span class="badge-vencido">❌ VENCIDO</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ folio.marca }}</td>
+                            <td>{{ folio.linea }}</td>
+                            <td>{{ folio.anio }}</td>
+                            <td>{{ folio.numero_serie }}</td>
+                            <td>{{ folio.numero_motor }}</td>
+                            <td>{{ folio.color }}</td>
+                            <td>{{ folio.contribuyente }}</td>
+                            <td>{{ folio.fecha_expedicion }}</td>
+                            <td>{{ folio.fecha_vencimiento }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="no-results" id="noResults">
+                ❌ No se encontraron resultados para tu búsqueda
+            </div>
+            
+            {% else %}
+            <div class="no-data">
+                📭 No hay folios registrados en el sistema
+            </div>
+            {% endif %}
         </div>
 
         <div class="footer">
             <img src="/static/pie.jpg" alt="Pie Aguascalientes" loading="lazy">
         </div>
     </div>
+
+    <script>
+        // BUSCADOR VERGUÍSIMO
+        const searchInput = document.getElementById('searchInput');
+        const searchField = document.getElementById('searchField');
+        const searchResults = document.getElementById('searchResults');
+        const foliosBody = document.getElementById('foliosBody');
+        const noResults = document.getElementById('noResults');
+        const totalFolios = document.getElementById('totalFolios');
+        const allRows = foliosBody ? foliosBody.querySelectorAll('tr') : [];
+        const totalOriginal = allRows.length;
+
+        function performSearch() {
+            if (!foliosBody) return;
+            
+            const searchTerm = searchInput.value.trim().toUpperCase();
+            const field = searchField.value;
+            
+            let visibleCount = 0;
+            
+            allRows.forEach(row => {
+                if (searchTerm === '') {
+                    // Sin búsqueda, mostrar todo
+                    row.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    // Buscar en el campo seleccionado
+                    const fieldValue = row.getAttribute(`data-${field}`) || '';
+                    
+                    if (fieldValue.toUpperCase().includes(searchTerm)) {
+                        row.classList.remove('hidden');
+                        visibleCount++;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                }
+            });
+            
+            // Actualizar resultados
+            if (searchTerm === '') {
+                searchResults.innerHTML = '';
+                noResults.style.display = 'none';
+                totalFolios.textContent = totalOriginal;
+            } else {
+                if (visibleCount === 0) {
+                    searchResults.innerHTML = '❌ 0 resultados encontrados';
+                    noResults.style.display = 'block';
+                    totalFolios.textContent = '0';
+                } else {
+                    searchResults.innerHTML = `✅ ${visibleCount} resultado${visibleCount !== 1 ? 's' : ''} encontrado${visibleCount !== 1 ? 's' : ''}`;
+                    noResults.style.display = 'none';
+                    totalFolios.textContent = visibleCount;
+                }
+            }
+        }
+
+        // Event listeners
+        if (searchInput) {
+            searchInput.addEventListener('input', performSearch);
+            searchInput.addEventListener('keyup', performSearch);
+        }
+        
+        if (searchField) {
+            searchField.addEventListener('change', performSearch);
+        }
+
+        // Limpiar búsqueda al cargar
+        if (searchInput) {
+            searchInput.value = '';
+        }
+    </script>
 </body>
 </html>

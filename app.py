@@ -671,12 +671,13 @@ async def login_post(request: Request, username: str = Form(...), password: str 
     
     return RedirectResponse(url="/panel/login?error=1", status_code=303)
 
-@app.get("/panel/admin", response_class=HTMLResponse)
-async def panel_admin(request: Request):
-    if not request.session.get("admin"):
-        return RedirectResponse(url="/panel/login", status_code=303)
-    
-    return templates.TemplateResponse("panel.html", {"request": request})
+@app.get("/panel/login", response_class=HTMLResponse)
+async def login_get(request: Request):
+    error = request.query_params.get("error")
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": error
+    })
 
 @app.get("/panel/admin_folios", response_class=HTMLResponse)
 async def admin_folios_get(request: Request):

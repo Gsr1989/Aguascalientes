@@ -660,7 +660,11 @@ async def root():
 
 @app.get("/panel/login", response_class=HTMLResponse)
 async def login_get(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    error = request.query_params.get("error")
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": error
+    })
 
 @app.post("/panel/login")
 async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -671,13 +675,12 @@ async def login_post(request: Request, username: str = Form(...), password: str 
     
     return RedirectResponse(url="/panel/login?error=1", status_code=303)
 
-@app.get("/panel/login", response_class=HTMLResponse)
-async def login_get(request: Request):
-    error = request.query_params.get("error")
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "error": error
-    })
+@app.get("/panel/admin", response_class=HTMLResponse)
+async def panel_admin(request: Request):
+    if not request.session.get("admin"):
+        return RedirectResponse(url="/panel/login", status_code=303)
+    
+    return templates.TemplateResponse("panel.html", {"request": request})
 
 @app.get("/panel/admin_folios", response_class=HTMLResponse)
 async def admin_folios_get(request: Request):
@@ -711,16 +714,14 @@ async def admin_folios_get(request: Request):
         "folios": folios
     })
 
-@app.get("/panel/login", response_class=HTMLResponse)
-async def login_get(request: Request):
-    error = request.query_params.get("error")
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "error": error
-    })
+@app.get("/panel/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/panel/login", status_code=303)
 
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str, request: Request):
+    """Ruta para QR dinámico - VERSIÓN FINAL CORREGIDA"""
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
         print(f"[CONSULTA] Buscando folio: {folio_limpio}")
@@ -728,23 +729,11 @@ async def estado_folio(folio: str, request: Request):
         res = supabase.table("folios_registrados") \
             .select("*") \
             .eq("folio", folio_limpio) \
-            .limit(1) \
             .execute()
 
-        data = res.data
-
-        # 🔥 VALIDACIÓN ANTI BUG SUPABASE
-        if not data:
-            row = None
-        elif isinstance(data, list):
-            row = data[0] if len(data) > 0 else None
-        elif isinstance(data, dict):
-            row = data
-        else:
-            row = None
-
-        if not row:
-            print("[CONSULTA] NO ENCONTRADO")
+        # Validación robusta de respuesta Supabase
+        if not res.data or len(res.data) == 0:
+            print(f"[CONSULTA] Folio {folio_limpio} NO ENCONTRADO")
             return templates.TemplateResponse("resultado_consulta.html", {
                 "request": request,
                 "folio": folio_limpio,
@@ -761,20 +750,24 @@ async def estado_folio(folio: str, request: Request):
                 "no_encontrado": True
             })
 
-        # 🔥 PROTEGER FECHAS
+        row = res.data[0]
+        print(f"[CONSULTA] Folio {folio_limpio} ENCONTRADO")
+
+        # Validar y convertir fechas
         try:
-            fecha_exp_dt = datetime.fromisoformat(row.get('fecha_expedicion'))
-            fecha_ven_dt = datetime.fromisoformat(row.get('fecha_vencimiento'))
-        except:
-            print("[CONSULTA] ERROR EN FECHAS")
-            return HTMLResponse("Error en fechas del folio", status_code=500)
+            fecha_exp_dt = datetime.fromisoformat(row['fecha_expedicion'])
+            fecha_ven_dt = datetime.fromisoformat(row['fecha_vencimiento'])
+        except Exception as fecha_err:
+            print(f"[CONSULTA] Error en fechas: {fecha_err}")
+            return HTMLResponse("Error en formato de fechas del folio", status_code=500)
 
         hoy = datetime.now(ZoneInfo(TZ)).date()
         vigente = hoy <= fecha_ven_dt.date()
 
+        # Pasar variables con nombres correctos del template
         return templates.TemplateResponse("resultado_consulta.html", {
             "request": request,
-            "folio": folio_limpio,
+            "folio": str(folio_limpio),
             "vigente": vigente,
             "marca": str(row.get('marca', '')),
             "linea": str(row.get('linea', '')),
@@ -793,9 +786,15 @@ async def estado_folio(folio: str, request: Request):
         traceback.print_exc()
 
         return HTMLResponse(f"""
-        <h1>Error interno</h1>
-        <p>{str(e)}</p>
-        <p>Revisa logs en Render</p>
+        <html>
+        <head><title>Error</title></head>
+        <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1>Error del sistema</h1>
+            <p>Hubo un problema al consultar el folio <strong>{folio}</strong></p>
+            <p style="color: #666;">{str(e)}</p>
+            <a href="/" style="color: #3B5998;">Volver al inicio</a>
+        </body>
+        </html>
         """, status_code=500)
 
 @app.get("/health")
@@ -820,4 +819,3 @@ if __name__ == "__main__":
     import uvicorn
     print("[ARRANQUE] Sistema AGS Bot + Web")
     uvicorn.run(app, host="0.0.0.0", port=8000)
- 

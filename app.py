@@ -22,7 +22,6 @@ from io import BytesIO
 import fitz
 import traceback
 
-# ===================== CONFIGURACIÓN =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -47,7 +46,6 @@ bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-# ===================== SISTEMA DE CONSECUTIVOS =====================
 CONSECUTIVOS_INICIALES = {
     "recibo_ingreso": 403202608800627,
     "pase_caja": 9000002373220,
@@ -90,7 +88,6 @@ def obtener_siguiente_consecutivo(tipo: str) -> int:
     
     return CONSECUTIVOS_INICIALES[tipo] + random.randint(1000, 9999)
 
-# ===================== SISTEMA DE TIMERS - 36 HORAS =====================
 timers_activos = {}
 user_folios = {}
 
@@ -197,7 +194,6 @@ def limpiar_timer_folio(folio: str):
 def obtener_folios_usuario(user_id: int):
     return user_folios.get(user_id, [])
 
-# ===================== FUNCIONES AUXILIARES =====================
 def limpiar_entrada(texto: str) -> str:
     if not texto:
         return ""
@@ -375,7 +371,6 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
         print(f"[PDF] Error: {e}")
         raise e
 
-# ===================== ESTADOS DEL BOT =====================
 class PermisoForm(StatesGroup):
     marca = State()
     linea = State()
@@ -385,7 +380,6 @@ class PermisoForm(StatesGroup):
     color = State()
     nombre = State()
 
-# ===================== HANDLERS DEL BOT =====================
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message, state: FSMContext):
     await state.clear()
@@ -611,7 +605,6 @@ async def ver_folios(message: types.Message):
 async def fallback(message: types.Message):
     await message.answer("🏛️ Sistema Aguascalientes")
 
-# ===================== FASTAPI =====================
 _keep_task = None
 
 async def keep_alive():
@@ -642,7 +635,6 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key="tu_clave_secreta_super_segura_123456")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# ===================== RUTAS WEB =====================
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     try:
@@ -722,34 +714,40 @@ async def logout(request: Request):
 
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str, request: Request):
-    """Ruta QR - USA TU TEMPLATE ORIGINAL"""
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
         print(f"[CONSULTA] Buscando: {folio_limpio}")
 
-        res = supabase.table("folios_registrados") \
-            .select("*") \
-            .eq("folio", folio_limpio) \
-            .execute()
+        res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).execute()
 
         if not res.data or len(res.data) == 0:
             print(f"[CONSULTA] NO ENCONTRADO: {folio_limpio}")
             
-            return templates.TemplateResponse("resultado_consulta.html", {
-                "request": request,
-                "folio": str(folio_limpio),
-                "vigente": False,
-                "no_encontrado": True,
-                "marca": "",
-                "linea": "",
-                "anio": "",
-                "serie": "",
-                "motor": "",
-                "color": "",
-                "nombre": "",
-                "expedicion": "",
-                "vencimiento": ""
-            })
+            return HTMLResponse("""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folio No Encontrado</title>
+    <style>
+        body { font-family: Arial; background: #f5f5f5; padding: 20px; margin: 0; }
+        .container { max-width: 500px; margin: 50px auto; background: white; border-radius: 15px; padding: 40px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .icon { font-size: 60px; margin-bottom: 20px; }
+        h1 { color: #333; margin: 20px 0; }
+        .folio { background: #f0f0f0; padding: 15px; border-radius: 8px; font-size: 20px; font-weight: bold; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">❌</div>
+        <h1>Folio No Encontrado</h1>
+        <div class="folio">""" + folio_limpio + """</div>
+        <p>El folio no existe o ya expiró</p>
+    </div>
+</body>
+</html>
+            """)
 
         row = res.data[0]
         print(f"[CONSULTA] ENCONTRADO: {folio_limpio}")
@@ -764,21 +762,107 @@ async def estado_folio(folio: str, request: Request):
         hoy = datetime.now(ZoneInfo(TZ)).date()
         vigente = hoy <= fecha_ven_dt.date()
 
-        return templates.TemplateResponse("resultado_consulta.html", {
-            "request": request,
-            "folio": str(folio_limpio),
-            "vigente": bool(vigente),
-            "no_encontrado": False,
-            "marca": str(row.get('marca', '')),
-            "linea": str(row.get('linea', '')),
-            "anio": str(row.get('anio', '')),
-            "serie": str(row.get('numero_serie', '')),
-            "motor": str(row.get('numero_motor', '')),
-            "color": str(row.get('color', '')),
-            "nombre": str(row.get('contribuyente', '')),
-            "expedicion": str(fecha_exp_dt.strftime('%d/%m/%Y')),
-            "vencimiento": str(fecha_ven_dt.strftime('%d/%m/%Y'))
-        })
+        marca = str(row.get('marca', ''))
+        linea = str(row.get('linea', ''))
+        anio = str(row.get('anio', ''))
+        serie = str(row.get('numero_serie', ''))
+        motor = str(row.get('numero_motor', ''))
+        color = str(row.get('color', ''))
+        nombre = str(row.get('contribuyente', ''))
+        expedicion = fecha_exp_dt.strftime('%d/%m/%Y')
+        vencimiento = fecha_ven_dt.strftime('%d/%m/%Y')
+
+        estado_color = "#4CAF50" if vigente else "#f44336"
+        estado_texto = "VIGENTE" if vigente else "VENCIDO"
+        estado_icon = "✅" if vigente else "❌"
+
+        return HTMLResponse(f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permiso {folio_limpio}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }}
+        .header {{ background: {estado_color}; color: white; padding: 40px 30px; text-align: center; }}
+        .icon {{ font-size: 60px; margin-bottom: 15px; }}
+        .status {{ font-size: 32px; font-weight: bold; margin-bottom: 20px; }}
+        .folio-box {{ background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px; font-size: 22px; font-family: monospace; }}
+        .content {{ padding: 30px; }}
+        h2 {{ color: #333; margin-bottom: 25px; font-size: 22px; }}
+        .row {{ display: flex; padding: 15px 0; border-bottom: 1px solid #eee; }}
+        .row:last-child {{ border-bottom: none; }}
+        .label {{ font-weight: bold; color: #666; width: 130px; flex-shrink: 0; }}
+        .value {{ color: #333; flex: 1; }}
+        .dates {{ background: #f9f9f9; padding: 20px; border-radius: 10px; margin-top: 25px; }}
+        .date-row {{ display: flex; justify-content: space-between; margin: 12px 0; font-size: 16px; }}
+        .date-row strong {{ color: #555; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">{estado_icon}</div>
+            <div class="status">{estado_texto}</div>
+            <div class="folio-box">Folio: {folio_limpio}</div>
+        </div>
+        
+        <div class="content">
+            <h2>Datos del Vehículo</h2>
+            
+            <div class="row">
+                <div class="label">Marca:</div>
+                <div class="value">{marca}</div>
+            </div>
+            
+            <div class="row">
+                <div class="label">Línea:</div>
+                <div class="value">{linea}</div>
+            </div>
+            
+            <div class="row">
+                <div class="label">Año:</div>
+                <div class="value">{anio}</div>
+            </div>
+            
+            <div class="row">
+                <div class="label">Serie:</div>
+                <div class="value">{serie}</div>
+            </div>
+            
+            <div class="row">
+                <div class="label">Motor:</div>
+                <div class="value">{motor}</div>
+            </div>
+            
+            <div class="row">
+                <div class="label">Color:</div>
+                <div class="value">{color}</div>
+            </div>
+            
+            <div class="row">
+                <div class="label">Propietario:</div>
+                <div class="value">{nombre}</div>
+            </div>
+            
+            <div class="dates">
+                <div class="date-row">
+                    <strong>Expedición:</strong>
+                    <span>{expedicion}</span>
+                </div>
+                <div class="date-row">
+                    <strong>Vencimiento:</strong>
+                    <span>{vencimiento}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+        """)
 
     except Exception as e:
         print(f"[CONSULTA] CRÍTICO: {e}")
@@ -794,7 +878,7 @@ async def health_check():
         return {
             "status": "healthy",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "version": "6.3 - AGS FINAL",
+            "version": "6.4 - AGS FINAL",
             "bot": f"@{bot_info.username}" if bot_info else "error",
             "timers_activos": len(timers_activos)
         }

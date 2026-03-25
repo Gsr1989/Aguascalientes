@@ -76,7 +76,7 @@
             background: #4caf50;
             color: white;
             {% else %}
-            background: #f44336;
+            background: #b8860b;
             color: white;
             {% endif %}
         }
@@ -87,40 +87,38 @@
         }
 
         .resultado-box {
-            padding: 30px; 
-            border-radius: 15px; 
-            margin: 20px 0; 
-            font-size: 16px;
-            text-align: left;
-
-            {% if no_encontrado %}
-            background: #f5f5f5; 
-            border: 3px solid #9e9e9e; 
-            color: #333;
-            {% elif vigente %}
-            background: #e8f5e8; 
-            border: 3px solid #4caf50; 
-            color: #2d5730;
-            {% else %}
-            background: #ffeaea; 
-            border: 3px solid #f44336; 
-            color: #8b2635;
-            {% endif %}
+            background: #f0f0f0;
+            border-radius: 15px;
+            padding: 16px;
+            margin: 20px 0;
         }
 
-        .dato { 
-            margin: 15px 0; 
-            font-weight: bold; 
-            font-size: 16px;
-            padding: 10px;
-            background: rgba(255,255,255,0.5);
-            border-radius: 5px;
+        .datos-inner {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 24px 20px;
+            text-align: left;
+        }
+
+        .dato {
+            margin: 14px 0;
         }
 
         .dato-label {
-            color: #2c3e50;
+            display: block;
+            font-size: 12px;
             font-weight: bold;
-            margin-right: 10px;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .dato-value {
+            display: block;
+            font-size: 15px;
+            color: #222;
+            font-weight: normal;
         }
 
         .mensaje-no-encontrado {
@@ -130,15 +128,25 @@
             padding: 20px;
         }
 
+        .info-adicional {
+            text-align: center;
+            color: #444;
+            font-size: 13px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 20px 0 10px 0;
+        }
+
         .boton-salir {
-            margin-top: 30px;
+            margin-top: 20px;
         }
 
         .boton-salir a {
             display: inline-block;
-            background: #3B5998; 
+            background: #3B5998;
             color: #fff; 
-            padding: 15px 40px; 
+            padding: 15px 60px; 
             text-decoration: none;
             border-radius: 8px; 
             font-size: 16px; 
@@ -147,17 +155,7 @@
         }
 
         .boton-salir a:hover {
-            background: #2d4373;
-        }
-
-        .info-adicional {
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-            margin-top: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 5px;
+            background: #6b0000;
         }
 
         @media (max-width: 768px) {
@@ -165,140 +163,123 @@
                 margin: 0;
                 border-radius: 0;
             }
-
-            .validacion-titulo {
-                font-size: 20px;
-            }
-
-            .resultado-titulo {
-                font-size: 22px;
-            }
-
-            .folio-status {
-                font-size: 18px;
-                padding: 15px 20px;
-            }
-
-            .content {
-                padding: 15px 20px 30px 20px;
-            }
-
-            .resultado-box {
-                padding: 20px;
-            }
-
-            .dato {
-                font-size: 14px;
-            }
+            .validacion-titulo { font-size: 20px; }
+            .resultado-titulo  { font-size: 22px; }
+            .folio-status { font-size: 18px; padding: 15px 20px; }
+            .content { padding: 15px 20px 30px 20px; }
+            .dato-value { font-size: 14px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
 
-        <!-- ENCABEZADO -->
         <div class="header">
             {% if not no_encontrado %}
             <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" onerror="this.style.display='none'">
             {% endif %}
         </div>
 
-        <!-- TÍTULO -->
         <div class="validacion-titulo">
-            🏛️ VALIDACIÓN DE PERMISOS DIGITALES
+            VALIDACIÓN DE PERMISOS DIGITALES
         </div>
 
         <div class="resultado-titulo">
             AGUASCALIENTES
         </div>
 
-        <!-- STATUS DEL FOLIO -->
         <div class="folio-status">
             {% if no_encontrado %}
-                ❌ FOLIO {{ folio }} NO ENCONTRADO
+                FOLIO {{ folio }} : NO ENCONTRADO
             {% elif vigente %}
-                ✅ FOLIO {{ folio }} VIGENTE
+                FOLIO {{ folio }} : VIGENTE
             {% else %}
-                ⚠️ FOLIO {{ folio }} VENCIDO
+                FOLIO {{ folio }} : VENCIDO
             {% endif %}
         </div>
 
-        <!-- CONTENIDO -->
         <div class="content">
+
+            {% if not no_encontrado %}
+
             <div class="resultado-box">
-
-                {% if not no_encontrado %}
+                <div class="datos-inner">
 
                     <div class="dato">
-                        <span class="dato-label">📄 Folio:</span> {{ folio }}
+                        <span class="dato-label">Fecha de Expedición</span>
+                        <span class="dato-value">{{ expedicion }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">🚗 Marca:</span> {{ marca }}
+                        <span class="dato-label">Fecha de Vencimiento</span>
+                        <span class="dato-value">{{ vencimiento }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">🔧 Línea:</span> {{ linea }}
+                        <span class="dato-label">Marca</span>
+                        <span class="dato-value">{{ marca }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">📅 Año:</span> {{ anio }}
+                        <span class="dato-label">Línea</span>
+                        <span class="dato-value">{{ linea }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">🔢 Número de Serie:</span> {{ serie }}
+                        <span class="dato-label">Año</span>
+                        <span class="dato-value">{{ anio }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">⚙️ Número de Motor:</span> {{ motor }}
+                        <span class="dato-label">Número de Serie</span>
+                        <span class="dato-value">{{ serie }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">🎨 Color:</span> {{ color }}
+                        <span class="dato-label">Número de Motor</span>
+                        <span class="dato-value">{{ motor }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">👤 Titular:</span> {{ nombre }}
+                        <span class="dato-label">Color</span>
+                        <span class="dato-value">{{ color }}</span>
                     </div>
 
                     <div class="dato">
-                        <span class="dato-label">📆 Fecha de Expedición:</span> {{ expedicion }}
+                        <span class="dato-label">Titular</span>
+                        <span class="dato-value">{{ nombre }}</span>
                     </div>
 
-                    <div class="dato">
-                        <span class="dato-label">⏰ Fecha de Vencimiento:</span> {{ vencimiento }}
-                    </div>
+                </div>
+            </div>
 
-                {% else %}
+            <div class="info-adicional">
+               ⚠️ Este permiso fue generado por el Sistema Digital de Permisos de Aguascalientes
+            </div>
 
+            {% else %}
+
+            <div class="resultado-box">
+                <div class="datos-inner">
                     <div class="mensaje-no-encontrado">
-                        <h3>🔍 No se encontró el folio en el sistema</h3>
+                        <h3>No se encontró el folio en el sistema</h3>
                         <p style="margin-top: 15px; color: #666;">
-                            El folio <strong>{{ folio }}</strong> no está registrado en la base de datos.
+                            El folio <strong>{{ folio }}</strong> no está registrado.
                         </p>
                         <p style="margin-top: 10px; color: #999; font-size: 14px;">
                             Verifica que el número de folio sea correcto.
                         </p>
                     </div>
-
-                {% endif %}
-
+                </div>
             </div>
 
-            {% if not no_encontrado %}
-            <div class="info-adicional">
-                ℹ️ Este permiso fue generado por el Sistema Digital de Permisos de Aguascalientes
-            </div>
             {% endif %}
 
             <div class="boton-salir">
-                <a href="/">
-                    ← Volver al Inicio
-                </a>
+                <a href="https://www.aguascalientes.gob.mx/cmov/">Salir</a>
             </div>
         </div>
 
-        <!-- PIE DE PÁGINA -->
         <div class="footer">
             {% if not no_encontrado %}
             <img src="/static/pie.jpg" alt="Pie Aguascalientes" onerror="this.style.display='none'">

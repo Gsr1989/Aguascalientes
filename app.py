@@ -722,7 +722,7 @@ async def logout(request: Request):
 
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str, request: Request):
-    """Ruta QR - HTML DIRECTO SIN TEMPLATES"""
+    """Ruta QR - USA TU TEMPLATE ORIGINAL"""
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
         print(f"[CONSULTA] Buscando: {folio_limpio}")
@@ -735,72 +735,21 @@ async def estado_folio(folio: str, request: Request):
         if not res.data or len(res.data) == 0:
             print(f"[CONSULTA] NO ENCONTRADO: {folio_limpio}")
             
-            return HTMLResponse(f"""
-            <!DOCTYPE html>
-            <html lang="es">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Folio No Encontrado</title>
-                <style>
-                    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                    body {{
-                        font-family: Arial, sans-serif;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        min-height: 100vh;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        padding: 20px;
-                    }}
-                    .card {{
-                        background: white;
-                        border-radius: 20px;
-                        padding: 40px;
-                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                        max-width: 500px;
-                        width: 100%;
-                        text-align: center;
-                    }}
-                    .icon {{
-                        font-size: 80px;
-                        margin-bottom: 20px;
-                    }}
-                    h1 {{
-                        color: #333;
-                        font-size: 28px;
-                        margin-bottom: 15px;
-                    }}
-                    .folio {{
-                        background: #f5f5f5;
-                        padding: 15px;
-                        border-radius: 10px;
-                        font-size: 24px;
-                        font-weight: bold;
-                        color: #666;
-                        margin: 20px 0;
-                        font-family: monospace;
-                    }}
-                    .message {{
-                        color: #666;
-                        font-size: 16px;
-                        line-height: 1.6;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <div class="icon">❌</div>
-                    <h1>Folio No Encontrado</h1>
-                    <div class="folio">{folio_limpio}</div>
-                    <p class="message">
-                        El folio consultado no existe en el sistema o ya venció.<br>
-                        Verifica el código QR o contacta con soporte.
-                    </p>
-                </div>
-            </body>
-            </html>
-            """)
+            return templates.TemplateResponse("resultado_consulta.html", {
+                "request": request,
+                "folio": str(folio_limpio),
+                "vigente": False,
+                "no_encontrado": True,
+                "marca": "",
+                "linea": "",
+                "anio": "",
+                "serie": "",
+                "motor": "",
+                "color": "",
+                "nombre": "",
+                "expedicion": "",
+                "vencimiento": ""
+            })
 
         row = res.data[0]
         print(f"[CONSULTA] ENCONTRADO: {folio_limpio}")
@@ -810,202 +759,32 @@ async def estado_folio(folio: str, request: Request):
             fecha_ven_dt = datetime.fromisoformat(str(row['fecha_vencimiento']))
         except Exception as e:
             print(f"[CONSULTA] Error fechas: {e}")
-            return HTMLResponse("<h1>Error en formato de fechas</h1>", status_code=500)
+            return HTMLResponse("<h1>Error en fechas</h1>", status_code=500)
 
         hoy = datetime.now(ZoneInfo(TZ)).date()
         vigente = hoy <= fecha_ven_dt.date()
 
-        marca = str(row.get('marca', ''))
-        linea = str(row.get('linea', ''))
-        anio = str(row.get('anio', ''))
-        serie = str(row.get('numero_serie', ''))
-        motor = str(row.get('numero_motor', ''))
-        color = str(row.get('color', ''))
-        nombre = str(row.get('contribuyente', ''))
-        expedicion = fecha_exp_dt.strftime('%d/%m/%Y')
-        vencimiento = fecha_ven_dt.strftime('%d/%m/%Y')
-
-        estado_color = "#4CAF50" if vigente else "#f44336"
-        estado_texto = "VIGENTE" if vigente else "VENCIDO"
-        estado_icon = "✅" if vigente else "❌"
-
-        return HTMLResponse(f"""
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Permiso {folio_limpio}</title>
-            <style>
-                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                body {{
-                    font-family: Arial, sans-serif;
-                    background: #f5f5f5;
-                    padding: 20px;
-                }}
-                .container {{
-                    max-width: 600px;
-                    margin: 0 auto;
-                    background: white;
-                    border-radius: 15px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-                    overflow: hidden;
-                }}
-                .header {{
-                    background: {estado_color};
-                    color: white;
-                    padding: 30px;
-                    text-align: center;
-                }}
-                .estado {{
-                    font-size: 48px;
-                    margin-bottom: 10px;
-                }}
-                .estado-texto {{
-                    font-size: 24px;
-                    font-weight: bold;
-                }}
-                .folio-box {{
-                    background: rgba(255,255,255,0.2);
-                    padding: 15px;
-                    border-radius: 10px;
-                    margin-top: 15px;
-                    font-size: 20px;
-                    font-family: monospace;
-                }}
-                .content {{
-                    padding: 30px;
-                }}
-                .info-row {{
-                    display: flex;
-                    padding: 15px 0;
-                    border-bottom: 1px solid #eee;
-                }}
-                .info-row:last-child {{
-                    border-bottom: none;
-                }}
-                .label {{
-                    font-weight: bold;
-                    color: #666;
-                    width: 140px;
-                    flex-shrink: 0;
-                }}
-                .value {{
-                    color: #333;
-                    flex: 1;
-                }}
-                .dates {{
-                    background: #f9f9f9;
-                    padding: 20px;
-                    border-radius: 10px;
-                    margin-top: 20px;
-                }}
-                .date-item {{
-                    display: flex;
-                    justify-content: space-between;
-                    margin: 10px 0;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="estado">{estado_icon}</div>
-                    <div class="estado-texto">{estado_texto}</div>
-                    <div class="folio-box">Folio: {folio_limpio}</div>
-                </div>
-                
-                <div class="content">
-                    <h2 style="margin-bottom: 20px; color: #333;">Datos del Vehículo</h2>
-                    
-                    <div class="info-row">
-                        <div class="label">Marca:</div>
-                        <div class="value">{marca}</div>
-                    </div>
-                    
-                    <div class="info-row">
-                        <div class="label">Línea:</div>
-                        <div class="value">{linea}</div>
-                    </div>
-                    
-                    <div class="info-row">
-                        <div class="label">Año:</div>
-                        <div class="value">{anio}</div>
-                    </div>
-                    
-                    <div class="info-row">
-                        <div class="label">Serie:</div>
-                        <div class="value">{serie}</div>
-                    </div>
-                    
-                    <div class="info-row">
-                        <div class="label">Motor:</div>
-                        <div class="value">{motor}</div>
-                    </div>
-                    
-                    <div class="info-row">
-                        <div class="label">Color:</div>
-                        <div class="value">{color}</div>
-                    </div>
-                    
-                    <div class="info-row">
-                        <div class="label">Propietario:</div>
-                        <div class="value">{nombre}</div>
-                    </div>
-                    
-                    <div class="dates">
-                        <div class="date-item">
-                            <strong>Expedición:</strong>
-                            <span>{expedicion}</span>
-                        </div>
-                        <div class="date-item">
-                            <strong>Vencimiento:</strong>
-                            <span>{vencimiento}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """)
+        return templates.TemplateResponse("resultado_consulta.html", {
+            "request": request,
+            "folio": str(folio_limpio),
+            "vigente": bool(vigente),
+            "no_encontrado": False,
+            "marca": str(row.get('marca', '')),
+            "linea": str(row.get('linea', '')),
+            "anio": str(row.get('anio', '')),
+            "serie": str(row.get('numero_serie', '')),
+            "motor": str(row.get('numero_motor', '')),
+            "color": str(row.get('color', '')),
+            "nombre": str(row.get('contribuyente', '')),
+            "expedicion": str(fecha_exp_dt.strftime('%d/%m/%Y')),
+            "vencimiento": str(fecha_ven_dt.strftime('%d/%m/%Y'))
+        })
 
     except Exception as e:
         print(f"[CONSULTA] CRÍTICO: {e}")
         traceback.print_exc()
         
-        return HTMLResponse(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Error</title>
-            <style>
-                body {{
-                    font-family: Arial;
-                    padding: 40px;
-                    text-align: center;
-                    background: #f5f5f5;
-                }}
-                .error {{
-                    background: white;
-                    padding: 40px;
-                    border-radius: 15px;
-                    max-width: 500px;
-                    margin: 0 auto;
-                }}
-                h1 {{ color: #f44336; }}
-            </style>
-        </head>
-        <body>
-            <div class="error">
-                <h1>❌ Error del Sistema</h1>
-                <p>Error al consultar folio {folio}</p>
-                <code>{str(e)}</code>
-            </div>
-        </body>
-        </html>
-        """, status_code=500)
+        return HTMLResponse(f"<h1>Error: {str(e)}</h1>", status_code=500)
 
 @app.get("/health")
 async def health_check():
@@ -1015,7 +794,7 @@ async def health_check():
         return {
             "status": "healthy",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "version": "6.2 - AGS HTML Inline",
+            "version": "6.3 - AGS FINAL",
             "bot": f"@{bot_info.username}" if bot_info else "error",
             "timers_activos": len(timers_activos)
         }

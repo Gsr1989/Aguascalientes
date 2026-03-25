@@ -660,10 +660,11 @@ async def root():
 
 @app.get("/panel/login", response_class=HTMLResponse)
 async def login_get(request: Request):
-    error = request.query_params.get("error")
+    error_param = request.query_params.get("error", "")
+    
     return templates.TemplateResponse("login.html", {
         "request": request,
-        "error": error
+        "error": str(error_param) if error_param else ""
     })
 
 @app.post("/panel/login")
@@ -721,23 +722,24 @@ async def logout(request: Request):
 
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str, request: Request):
-    """Ruta para QR dinámico - VERSIÓN FINAL CORREGIDA"""
+    """Ruta para QR dinámico - VERSIÓN ULTRA CORREGIDA"""
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
-        print(f"[CONSULTA] Buscando folio: {folio_limpio}")
+        print(f"[CONSULTA] Buscando: {folio_limpio}")
 
         res = supabase.table("folios_registrados") \
             .select("*") \
             .eq("folio", folio_limpio) \
             .execute()
 
-        # Validación robusta de respuesta Supabase
         if not res.data or len(res.data) == 0:
-            print(f"[CONSULTA] Folio {folio_limpio} NO ENCONTRADO")
+            print(f"[CONSULTA] NO ENCONTRADO: {folio_limpio}")
+            
             return templates.TemplateResponse("resultado_consulta.html", {
                 "request": request,
-                "folio": folio_limpio,
+                "folio": str(folio_limpio),
                 "vigente": False,
+                "no_encontrado": True,
                 "marca": "",
                 "linea": "",
                 "anio": "",
@@ -746,29 +748,27 @@ async def estado_folio(folio: str, request: Request):
                 "color": "",
                 "nombre": "",
                 "expedicion": "",
-                "vencimiento": "",
-                "no_encontrado": True
+                "vencimiento": ""
             })
 
         row = res.data[0]
-        print(f"[CONSULTA] Folio {folio_limpio} ENCONTRADO")
+        print(f"[CONSULTA] ENCONTRADO: {folio_limpio}")
 
-        # Validar y convertir fechas
         try:
-            fecha_exp_dt = datetime.fromisoformat(row['fecha_expedicion'])
-            fecha_ven_dt = datetime.fromisoformat(row['fecha_vencimiento'])
-        except Exception as fecha_err:
-            print(f"[CONSULTA] Error en fechas: {fecha_err}")
-            return HTMLResponse("Error en formato de fechas del folio", status_code=500)
+            fecha_exp_dt = datetime.fromisoformat(str(row['fecha_expedicion']))
+            fecha_ven_dt = datetime.fromisoformat(str(row['fecha_vencimiento']))
+        except Exception as e:
+            print(f"[CONSULTA] Error fechas: {e}")
+            return HTMLResponse("<h1>Error en formato de fechas</h1>", status_code=500)
 
         hoy = datetime.now(ZoneInfo(TZ)).date()
         vigente = hoy <= fecha_ven_dt.date()
 
-        # Pasar variables con nombres correctos del template
         return templates.TemplateResponse("resultado_consulta.html", {
             "request": request,
             "folio": str(folio_limpio),
-            "vigente": vigente,
+            "vigente": bool(vigente),
+            "no_encontrado": False,
             "marca": str(row.get('marca', '')),
             "linea": str(row.get('linea', '')),
             "anio": str(row.get('anio', '')),
@@ -776,23 +776,55 @@ async def estado_folio(folio: str, request: Request):
             "motor": str(row.get('numero_motor', '')),
             "color": str(row.get('color', '')),
             "nombre": str(row.get('contribuyente', '')),
-            "expedicion": fecha_exp_dt.strftime('%d/%m/%Y'),
-            "vencimiento": fecha_ven_dt.strftime('%d/%m/%Y'),
-            "no_encontrado": False
+            "expedicion": str(fecha_exp_dt.strftime('%d/%m/%Y')),
+            "vencimiento": str(fecha_ven_dt.strftime('%d/%m/%Y'))
         })
 
     except Exception as e:
-        print(f"[CONSULTA] ERROR CRÍTICO: {e}")
+        print(f"[CONSULTA] CRÍTICO: {e}")
         traceback.print_exc()
-
+        
         return HTMLResponse(f"""
+        <!DOCTYPE html>
         <html>
-        <head><title>Error</title></head>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1>Error del sistema</h1>
-            <p>Hubo un problema al consultar el folio <strong>{folio}</strong></p>
-            <p style="color: #666;">{str(e)}</p>
-            <a href="/" style="color: #3B5998;">Volver al inicio</a>
+        <head>
+            <title>Error</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    padding: 40px;
+                    text-align: center;
+                    background: #f5f5f5;
+                }}
+                .error-box {{
+                    background: white;
+                    padding: 40px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                    max-width: 600px;
+                    margin: 0 auto;
+                }}
+                h1 {{ color: #f44336; }}
+                a {{ 
+                    display: inline-block;
+                    margin-top: 20px;
+                    padding: 10px 30px;
+                    background: #3B5998;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 5px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="error-box">
+                <h1>❌ Error del Sistema</h1>
+                <p>Hubo un problema al consultar el folio <strong>{folio}</strong></p>
+                <p style="color: #666; margin-top: 20px;">{str(e)}</p>
+                <a href="/">← Volver al Inicio</a>
+            </div>
         </body>
         </html>
         """, status_code=500)
@@ -805,7 +837,7 @@ async def health_check():
         return {
             "status": "healthy",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "version": "6.0 - AGS Completo",
+            "version": "6.1 - AGS Final",
             "bot": f"@{bot_info.username}" if bot_info else "error",
             "timers_activos": len(timers_activos)
         }

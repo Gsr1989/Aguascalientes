@@ -711,80 +711,92 @@ async def admin_folios_get(request: Request):
         "folios": folios
     })
 
-@app.get("/panel/logout")
-async def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse(url="/panel/login", status_code=303)
+@app.get("/panel/login", response_class=HTMLResponse)
+async def login_get(request: Request):
+    error = request.query_params.get("error")
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": error
+    })
 
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str, request: Request):
-    """Ruta para QR dinámico - CORREGIDA"""
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
         print(f"[CONSULTA] Buscando folio: {folio_limpio}")
-        
+
         res = supabase.table("folios_registrados") \
             .select("*") \
             .eq("folio", folio_limpio) \
+            .limit(1) \
             .execute()
-        
-        if not res.data or len(res.data) == 0:
-            print(f"[CONSULTA] Folio {folio_limpio} no encontrado")
+
+        data = res.data
+
+        # 🔥 VALIDACIÓN ANTI BUG SUPABASE
+        if not data:
+            row = None
+        elif isinstance(data, list):
+            row = data[0] if len(data) > 0 else None
+        elif isinstance(data, dict):
+            row = data
+        else:
+            row = None
+
+        if not row:
+            print("[CONSULTA] NO ENCONTRADO")
             return templates.TemplateResponse("resultado_consulta.html", {
                 "request": request,
-                "resultado": {
-                    "estado": "No encontrado",
-                    "folio": folio_limpio,
-                    "vigente": False,
-                    "no_encontrado": True
-                }
+                "folio": folio_limpio,
+                "vigente": False,
+                "marca": "",
+                "linea": "",
+                "anio": "",
+                "serie": "",
+                "motor": "",
+                "color": "",
+                "nombre": "",
+                "expedicion": "",
+                "vencimiento": "",
+                "no_encontrado": True
             })
-        
-        row = res.data[0]
-        print(f"[CONSULTA] Folio {folio_limpio} encontrado")
-        
+
+        # 🔥 PROTEGER FECHAS
+        try:
+            fecha_exp_dt = datetime.fromisoformat(row.get('fecha_expedicion'))
+            fecha_ven_dt = datetime.fromisoformat(row.get('fecha_vencimiento'))
+        except:
+            print("[CONSULTA] ERROR EN FECHAS")
+            return HTMLResponse("Error en fechas del folio", status_code=500)
+
         hoy = datetime.now(ZoneInfo(TZ)).date()
-        fecha_ven = datetime.fromisoformat(row['fecha_vencimiento']).date()
-        vigente = hoy <= fecha_ven
-        
-        fecha_exp = datetime.fromisoformat(row['fecha_expedicion']).strftime('%d/%m/%Y')
-        fecha_ven_str = fecha_ven.strftime('%d/%m/%Y')
-        
-        resultado = {
-            "estado": "VIGENTE" if vigente else "VENCIDO",
+        vigente = hoy <= fecha_ven_dt.date()
+
+        return templates.TemplateResponse("resultado_consulta.html", {
+            "request": request,
             "folio": folio_limpio,
             "vigente": vigente,
-            "fecha_expedicion": fecha_exp,
-            "fecha_vencimiento": fecha_ven_str,
             "marca": str(row.get('marca', '')),
             "linea": str(row.get('linea', '')),
             "anio": str(row.get('anio', '')),
-            "numero_serie": str(row.get('numero_serie', '')),
-            "numero_motor": str(row.get('numero_motor', '')),
+            "serie": str(row.get('numero_serie', '')),
+            "motor": str(row.get('numero_motor', '')),
             "color": str(row.get('color', '')),
             "nombre": str(row.get('contribuyente', '')),
+            "expedicion": fecha_exp_dt.strftime('%d/%m/%Y'),
+            "vencimiento": fecha_ven_dt.strftime('%d/%m/%Y'),
             "no_encontrado": False
-        }
-        
-        return templates.TemplateResponse("resultado_consulta.html", {
-            "request": request,
-            "resultado": resultado
         })
-        
+
     except Exception as e:
-        print(f"[CONSULTA] ERROR: {e}")
+        print(f"[CONSULTA] ERROR CRÍTICO: {e}")
         traceback.print_exc()
-        
-        return templates.TemplateResponse("resultado_consulta.html", {
-            "request": request,
-            "resultado": {
-                "estado": "Error",
-                "folio": folio,
-                "vigente": False,
-                "no_encontrado": True,
-                "error": str(e)
-            }
-        })
+
+        return HTMLResponse(f"""
+        <h1>Error interno</h1>
+        <p>{str(e)}</p>
+        <p>Revisa logs en Render</p>
+        """, status_code=500)
 
 @app.get("/health")
 async def health_check():

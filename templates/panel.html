@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
-        .container { width:100%; max-width:700px; margin:0 auto; background:#fff; }
+        .container { width:100%; max-width:600px; margin:0 auto; background:#fff; }
         .header, .footer { width:100%; text-align:center; }
         .header img, .footer img { width:100%; height:auto; display:block; }
         
@@ -19,8 +19,6 @@
             margin: 20px 0;
             padding: 15px;
             text-transform: uppercase;
-            font-family: 'Arial', sans-serif;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         
         .resultado-titulo {
@@ -28,90 +26,72 @@
             font-size: 26px;
             font-weight: bold;
             color: #3B5998;
-            letter-spacing: 1px;
             margin: 25px 0 20px 0;
-            padding: 10px;
-            text-transform: uppercase;
-            font-family: 'Arial', sans-serif;
         }
         
-        .content { padding:20px; }
+        .content { padding:20px; text-align:center; }
         
-        .menu-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            margin: 20px 0;
-        }
-        
-        .menu-item {
+        .login-box {
             background:#e8f5e8; 
             border:3px solid #3B5998; 
-            padding:25px; 
-            border-radius:15px;
-            text-decoration: none;
-            color: #2d5730;
-            display: block;
-            transition: all 0.3s;
+            color:#2d5730;
+            padding:30px; 
+            border-radius:15px; 
+            margin:20px 0;
         }
         
-        .menu-item:hover {
-            background:#d4edd4;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(59, 89, 152, 0.2);
+        .error-msg {
+            background:#ffeaea; 
+            border:3px solid #f44336; 
+            color:#8b2635;
+            padding:15px; 
+            border-radius:10px; 
+            margin:20px 0; 
+            font-weight:bold;
         }
         
-        .menu-icon {
-            font-size: 40px;
-            text-align: center;
-            margin-bottom: 10px;
+        .form-group { margin:20px 0; text-align:left; }
+        
+        label {
+            display:block;
+            font-weight:bold;
+            margin-bottom:8px;
         }
         
-        .menu-titulo {
-            font-size: 20px;
-            font-weight: bold;
-            text-align: center;
-            color: #3B5998;
-            margin-bottom: 8px;
+        input {
+            width:100%;
+            padding:12px;
+            border:2px solid #4caf50;
+            border-radius:8px;
+            font-size:16px;
         }
         
-        .menu-desc {
-            font-size: 14px;
-            text-align: center;
-            color: #2d5730;
+        input:focus {
+            outline:none;
+            border-color:#3B5998;
         }
         
-        .btn-logout {
-            background:#f44336; 
+        .btn-login {
+            background:#3B5998; 
             color:#fff; 
-            padding:15px 30px; 
-            text-decoration:none;
+            padding:15px; 
             border:none;
             border-radius:8px; 
             font-size:16px; 
             font-weight:bold; 
-            display:inline-block; 
-            transition:background .3s;
-            text-align: center;
-            margin: 30px auto;
-            display: block;
-            max-width: 300px;
+            width:100%;
+            margin-top:20px;
+            cursor:pointer;
         }
         
-        .btn-logout:hover { background:#d32f2f; }
-        
-        @media (max-width:600px){
-            .content{ padding:15px; }
-            .validacion-titulo { font-size: 20px; letter-spacing: 1px; margin: 15px 0; padding: 10px; }
-            .resultado-titulo { font-size: 22px; margin: 20px 0 15px 0; }
-            .menu-item { padding: 20px; }
-        }
+        .btn-login:hover { background:#2d4373; }
     </style>
 </head>
 <body>
     <div class="container">
+        
         <div class="header">
-            <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" loading="lazy">
+            <img src="/static/encabezado.jpg" alt="Encabezado">
         </div>
 
         <div class="validacion-titulo">
@@ -119,41 +99,41 @@
         </div>
         
         <div class="resultado-titulo">
-            PANEL DE CONTROL
+            PANEL DE ADMINISTRACIÓN
         </div>
 
         <div class="content">
-            <div class="menu-grid">
-                <a href="/panel/admin_folios" class="menu-item">
-                    <div class="menu-icon">📋</div>
-                    <div class="menu-titulo">Gestión de Folios</div>
-                    <div class="menu-desc">Ver, editar y administrar todos los folios registrados</div>
-                </a>
-                
-                <a href="/panel/registro_admin" class="menu-item">
-                    <div class="menu-icon">➕</div>
-                    <div class="menu-titulo">Registro Manual</div>
-                    <div class="menu-desc">Crear permiso directamente desde el panel</div>
-                </a>
-                
-                <a href="/panel/admin_tablas" class="menu-item">
-                    <div class="menu-icon">🗄️</div>
-                    <div class="menu-titulo">Tablas de Base de Datos</div>
-                    <div class="menu-desc">Acceso completo a todas las tablas del sistema</div>
-                </a>
-                
-                <a href="/" class="menu-item">
-                    <div class="menu-icon">🤖</div>
-                    <div class="menu-titulo">Estado del Bot</div>
-                    <div class="menu-desc">Ver información del sistema de Telegram</div>
-                </a>
+
+            <!-- 🔴 ERROR CONTROLADO -->
+            {% if error %}
+            <div class="error-msg">
+                ❌ Usuario o contraseña incorrectos
             </div>
+            {% endif %}
             
-            <a href="/panel/logout" class="btn-logout">🚪 Cerrar Sesión</a>
+            <div class="login-box">
+                <form method="POST" action="/panel/login">
+                    
+                    <div class="form-group">
+                        <label>👤 Usuario</label>
+                        <input type="text" name="username" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>🔒 Contraseña</label>
+                        <input type="password" name="password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn-login">
+                        INICIAR SESIÓN
+                    </button>
+                    
+                </form>
+            </div>
         </div>
 
         <div class="footer">
-            <img src="/static/pie.jpg" alt="Pie Aguascalientes" loading="lazy">
+            <img src="/static/pie.jpg" alt="Pie">
         </div>
     </div>
 </body>

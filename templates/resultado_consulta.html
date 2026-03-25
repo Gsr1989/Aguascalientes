@@ -2,13 +2,41 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Resultado de Consulta - {{ folio }}</title>
+    <title>Resultado de Consulta - Aguascalientes</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
-        .container { width:100%; max-width:600px; margin:0 auto; background:#fff; }
-        .header, .footer { width:100%; text-align:center; }
-        .header img, .footer img { width:100%; height:auto; display:block; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #f5f5f5;
+            padding: 20px 0;
+        }
+        
+        .container { 
+            width: 100%; 
+            max-width: 700px; 
+            margin: 0 auto; 
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .header, .footer { 
+            width: 100%; 
+            text-align: center; 
+        }
+        
+        .header img, .footer img { 
+            width: 100%; 
+            height: auto; 
+            display: block; 
+        }
         
         .validacion-titulo {
             text-align: center;
@@ -16,28 +44,30 @@
             font-weight: bold;
             color: #3B5998;
             letter-spacing: 2px;
-            margin: 20px 0;
-            padding: 15px;
+            margin: 30px 0 20px 0;
+            padding: 0 20px;
             text-transform: uppercase;
         }
         
         .resultado-titulo {
             text-align: center;
-            font-size: 26px;
+            font-size: 28px;
             font-weight: bold;
-            color: #3B5998;
+            color: #2c3e50;
             margin: 25px 0 20px 0;
             text-transform: uppercase;
         }
         
         .folio-status {
             text-align: center;
-            margin: 20px 0;
-            padding: 15px 30px;
+            margin: 20px auto;
+            padding: 20px 30px;
             border-radius: 10px;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
             text-transform: uppercase;
+            max-width: 90%;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
 
             {% if no_encontrado %}
             background: #9e9e9e;
@@ -51,59 +81,145 @@
             {% endif %}
         }
         
-        .content { padding:20px; text-align:center; }
+        .content { 
+            padding: 20px 30px 40px 30px; 
+            text-align: center; 
+        }
 
         .resultado-box {
-            padding:30px; 
-            border-radius:15px; 
-            margin:20px 0; 
-            font-size:16px;
+            padding: 30px; 
+            border-radius: 15px; 
+            margin: 20px 0; 
+            font-size: 16px;
+            text-align: left;
 
             {% if no_encontrado %}
-            background:#f5f5f5; border:3px solid #9e9e9e; color:#333;
+            background: #f5f5f5; 
+            border: 3px solid #9e9e9e; 
+            color: #333;
             {% elif vigente %}
-            background:#e8f5e8; border:3px solid #4caf50; color:#2d5730;
+            background: #e8f5e8; 
+            border: 3px solid #4caf50; 
+            color: #2d5730;
             {% else %}
-            background:#ffeaea; border:3px solid #f44336; color:#8b2635;
+            background: #ffeaea; 
+            border: 3px solid #f44336; 
+            color: #8b2635;
             {% endif %}
         }
 
-        .dato { margin:12px 0; font-weight:bold; text-align:left; }
+        .dato { 
+            margin: 15px 0; 
+            font-weight: bold; 
+            font-size: 16px;
+            padding: 10px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 5px;
+        }
+
+        .dato-label {
+            color: #2c3e50;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .mensaje-no-encontrado {
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+            padding: 20px;
+        }
+
+        .boton-salir {
+            margin-top: 30px;
+        }
 
         .boton-salir a {
-            background:#2196F3; 
-            color:#fff; 
-            padding:15px 30px; 
-            text-decoration:none;
-            border-radius:8px; 
-            font-size:16px; 
-            font-weight:bold;
+            display: inline-block;
+            background: #3B5998; 
+            color: #fff; 
+            padding: 15px 40px; 
+            text-decoration: none;
+            border-radius: 8px; 
+            font-size: 16px; 
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .boton-salir a:hover {
+            background: #2d4373;
+        }
+
+        .info-adicional {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .validacion-titulo {
+                font-size: 20px;
+            }
+
+            .resultado-titulo {
+                font-size: 22px;
+            }
+
+            .folio-status {
+                font-size: 18px;
+                padding: 15px 20px;
+            }
+
+            .content {
+                padding: 15px 20px 30px 20px;
+            }
+
+            .resultado-box {
+                padding: 20px;
+            }
+
+            .dato {
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
 
+        <!-- ENCABEZADO -->
         <div class="header">
-            <img src="/static/encabezado.jpg?v={{ folio }}">
+            {% if not no_encontrado %}
+            <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" onerror="this.style.display='none'">
+            {% endif %}
         </div>
 
+        <!-- TÍTULO -->
         <div class="validacion-titulo">
-            VALIDACIÓN DE PERMISOS DIGITALES
+            🏛️ VALIDACIÓN DE PERMISOS DIGITALES
         </div>
 
         <div class="resultado-titulo">
-            RESULTADO DE CONSULTA
+            AGUASCALIENTES
         </div>
 
-        <!-- STATUS -->
+        <!-- STATUS DEL FOLIO -->
         <div class="folio-status">
             {% if no_encontrado %}
-                FOLIO {{ folio }} NO ENCONTRADO
+                ❌ FOLIO {{ folio }} NO ENCONTRADO
             {% elif vigente %}
-                EL FOLIO {{ folio }} SE ENCUENTRA VIGENTE
+                ✅ FOLIO {{ folio }} VIGENTE
             {% else %}
-                EL FOLIO {{ folio }} SE ENCUENTRA VENCIDO
+                ⚠️ FOLIO {{ folio }} VENCIDO
             {% endif %}
         </div>
 
@@ -113,33 +229,80 @@
 
                 {% if not no_encontrado %}
 
-                    <div class="dato">Marca: {{ marca }}</div>
-                    <div class="dato">Línea: {{ linea }}</div>
-                    <div class="dato">Año: {{ anio }}</div>
-                    <div class="dato">Serie: {{ serie }}</div>
-                    <div class="dato">Número de motor: {{ motor }}</div>
-                    <div class="dato">Color: {{ color }}</div>
-                    <div class="dato">Nombre: {{ nombre }}</div>
-                    <div class="dato">Expedición: {{ expedicion }}</div>
-                    <div class="dato">Vencimiento: {{ vencimiento }}</div>
+                    <div class="dato">
+                        <span class="dato-label">📄 Folio:</span> {{ folio }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">🚗 Marca:</span> {{ marca }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">🔧 Línea:</span> {{ linea }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">📅 Año:</span> {{ anio }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">🔢 Número de Serie:</span> {{ serie }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">⚙️ Número de Motor:</span> {{ motor }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">🎨 Color:</span> {{ color }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">👤 Titular:</span> {{ nombre }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">📆 Fecha de Expedición:</span> {{ expedicion }}
+                    </div>
+
+                    <div class="dato">
+                        <span class="dato-label">⏰ Fecha de Vencimiento:</span> {{ vencimiento }}
+                    </div>
 
                 {% else %}
 
-                    <h3>No se encontró el folio en el sistema</h3>
+                    <div class="mensaje-no-encontrado">
+                        <h3>🔍 No se encontró el folio en el sistema</h3>
+                        <p style="margin-top: 15px; color: #666;">
+                            El folio <strong>{{ folio }}</strong> no está registrado en la base de datos.
+                        </p>
+                        <p style="margin-top: 10px; color: #999; font-size: 14px;">
+                            Verifica que el número de folio sea correcto.
+                        </p>
+                    </div>
 
                 {% endif %}
 
             </div>
 
+            {% if not no_encontrado %}
+            <div class="info-adicional">
+                ℹ️ Este permiso fue generado por el Sistema Digital de Permisos de Aguascalientes
+            </div>
+            {% endif %}
+
             <div class="boton-salir">
-                <a href="https://epagos.aguascalientes.gob.mx/contribuciones/default.aspx?opcion=CapturaPlacaSIIF.aspx">
-                    Salir
+                <a href="/">
+                    ← Volver al Inicio
                 </a>
             </div>
         </div>
 
+        <!-- PIE DE PÁGINA -->
         <div class="footer">
-            <img src="/static/pie.jpg?v={{ folio }}">
+            {% if not no_encontrado %}
+            <img src="/static/pie.jpg" alt="Pie Aguascalientes" onerror="this.style.display='none'">
+            {% endif %}
         </div>
 
     </div>

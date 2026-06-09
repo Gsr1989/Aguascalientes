@@ -36,7 +36,6 @@ ENTIDAD          = "ags"
 PRECIO_PERMISO   = 180
 TZ               = os.getenv("TZ", "America/Mexico_City")
 
-# Credenciales admin — mismas que CDMX y EDOMEX
 ADMIN_USER = "Serg890105tm3"
 ADMIN_PASS = "Serg890105tm3"
 
@@ -50,7 +49,6 @@ templates  = Jinja2Templates(directory=TEMPLATES_DIR)
 _jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Bot con timeout 300s — evita el HTTP timeout error
 _bot_session = AiohttpSession(timeout=aiohttp.ClientTimeout(total=300))
 bot     = Bot(token=BOT_TOKEN, session=_bot_session)
 storage = MemoryStorage()
@@ -100,7 +98,7 @@ async def eliminar_folio_automatico(folio: str):
             await bot.send_message(uid,
                 f"⏰ TIEMPO AGOTADO - AGUASCALIENTES\n\n"
                 f"El folio {folio} fue eliminado por no completar el pago en 36 horas.\n\n"
-                f"📋 Para generar otro permiso use /chuleta")
+                f"📋 Para generar otro permiso use /banamex")
         limpiar_timer_folio(folio)
     except Exception as e:
         print(f"Error eliminando folio {folio}: {e}")
@@ -114,7 +112,7 @@ async def enviar_recordatorio(folio: str, minutos_restantes: int):
             f"Folio: {folio}\nTiempo restante: {minutos_restantes} minutos\n"
             f"Monto: ${PRECIO_PERMISO}\n\n"
             f"📸 Envíe su comprobante de pago (imagen).\n\n"
-            f"📋 Para generar otro permiso use /chuleta")
+            f"📋 Para generar otro permiso use /banamex")
     except Exception as e:
         print(f"Error recordatorio {folio}: {e}")
 
@@ -193,19 +191,12 @@ def _sb_guardar_watermark_ags(numero: int):
         print(f"[ERROR] guardar_watermark AGS: {e}")
 
 def _sb_inicializar_folio_ags():
-    """
-    Al arrancar:
-    1) Lee watermark (máximo histórico real).
-    2) Si no existe, busca el máximo en DB activa y crea el watermark.
-    3) El contador NUNCA baja aunque se borren folios expirados.
-    """
     watermark = _sb_leer_watermark_ags()
     if watermark is not None:
         _folio_counter_ags["siguiente"] = watermark + 1
         print(f"[FOLIO AGS] Desde watermark: {FOLIO_NUM_PREFIJO}{watermark} "
               f"-> siguiente: {_folio_counter_ags['siguiente']}")
         return
-
     try:
         resp = supabase.table("folios_registrados") \
             .select("folio").eq("entidad", ENTIDAD) \
@@ -239,7 +230,6 @@ def _sb_folio_existe_ags(folio: str) -> bool:
         return False
 
 def _generar_folio_ags_sync() -> str:
-    """Busca SIEMPRE hacia arriba. Nunca retrocede."""
     candidato = _folio_counter_ags["siguiente"]
     for _ in range(100_000):
         folio = f"{FOLIO_NUM_PREFIJO}{candidato}"
@@ -281,7 +271,6 @@ def generar_qr_simple_ags(folio):
 def generar_pdf_unificado_ags(datos: dict) -> str:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, f"{datos['folio']}_ags.pdf")
-
     try:
         recibo_ingreso = obtener_siguiente_consecutivo("recibo_ingreso")
         pase_caja      = obtener_siguiente_consecutivo("pase_caja")
@@ -300,22 +289,14 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
         def fecha_espaciada(dt: datetime) -> str:
             return f"{dt.day:02d}   /   {MESES_MAYUS[dt.month-1]}   /   {dt.year}"
 
-        # ── Página 1: permiso ──
         if os.path.exists(PLANTILLA_PDF):
             doc_permiso = fitz.open(PLANTILLA_PDF)
             pg_permiso  = doc_permiso[0]
-
-            pg_permiso.insert_text(
-                (828, 103),
+            pg_permiso.insert_text((828, 103),
                 f"AGS  / {datos['folio']} / {datetime.now().year}",
-                fontsize=30, color=(1, 0, 0)
-            )
-
-            pg_permiso.insert_text(
-                (245, 305), f"{datos['marca']}   {datos['linea']}",
-                fontsize=25, color=(0, 0, 0)
-            )
-
+                fontsize=30, color=(1, 0, 0))
+            pg_permiso.insert_text((245, 305), f"{datos['marca']}   {datos['linea']}",
+                fontsize=25, color=(0, 0, 0))
             for campo, coord in [
                 ("anio",  (245, 353)),
                 ("color", (245, 402)),
@@ -323,12 +304,10 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
                 ("motor", (245, 498)),
             ]:
                 pg_permiso.insert_text(coord, str(datos[campo]), fontsize=25, color=(0, 0, 0))
-
             pg_permiso.insert_text((350, 543), fecha_espaciada(datos['fecha_exp_dt']),
                                    fontsize=25, color=(0, 0, 0))
             pg_permiso.insert_text((850, 543), fecha_espaciada(datos['fecha_ven_dt']),
                                    fontsize=25, color=(0, 0, 0))
-
             img_qr = generar_qr_simple_ags(datos["folio"])
             if img_qr:
                 buf = BytesIO(); img_qr.save(buf, format="PNG"); buf.seek(0)
@@ -340,29 +319,18 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
             doc_permiso.new_page(width=595, height=842).insert_text(
                 (50, 50), "PERMISO AGS (Plantilla no encontrada)", fontsize=20)
 
-        # ── Página 2: recibo ──
         if os.path.exists(PLANTILLA_RECIBO):
             doc_recibo = fitz.open(PLANTILLA_RECIBO)
             pg_recibo  = doc_recibo[0]
-
-            pg_recibo.insert_text((469, 62), str(recibo_ingreso),
-                                  fontsize=10, color=(0,0,0), fontname="hebo")
-            pg_recibo.insert_text((462, 771), str(recibo_ingreso),
-                                  fontsize=8,  color=(0,0,0))
-            pg_recibo.insert_text((469, 70), f"{ultimos_4_serie}  {datos['folio']}",
-                                  fontsize=7,  color=(0,0,0))
-            pg_recibo.insert_text((469, 83), str(pase_caja),
-                                  fontsize=8,  color=(0,0,0))
-            pg_recibo.insert_text((469, 93), fecha_hora_completa,
-                                  fontsize=7,  color=(0,0,0))
-            pg_recibo.insert_text((70, 165), rfc_generico,
-                                  fontsize=8,  color=(0,0,0))
-            pg_recibo.insert_text((70, 178), datos["nombre"],
-                                  fontsize=8,  color=(0,0,0))
-            pg_recibo.insert_text((149, 291), str(numero_1),
-                                  fontsize=5,  color=(0,0,0))
-            pg_recibo.insert_text((190, 291), str(numero_2),
-                                  fontsize=5,  color=(0,0,0))
+            pg_recibo.insert_text((469, 62),  str(recibo_ingreso), fontsize=10, color=(0,0,0), fontname="hebo")
+            pg_recibo.insert_text((462, 771), str(recibo_ingreso), fontsize=8,  color=(0,0,0))
+            pg_recibo.insert_text((469, 70),  f"{ultimos_4_serie}  {datos['folio']}", fontsize=7, color=(0,0,0))
+            pg_recibo.insert_text((469, 83),  str(pase_caja),      fontsize=8,  color=(0,0,0))
+            pg_recibo.insert_text((469, 93),  fecha_hora_completa, fontsize=7,  color=(0,0,0))
+            pg_recibo.insert_text((70,  165), rfc_generico,        fontsize=8,  color=(0,0,0))
+            pg_recibo.insert_text((70,  178), datos["nombre"],     fontsize=8,  color=(0,0,0))
+            pg_recibo.insert_text((149, 291), str(numero_1),       fontsize=5,  color=(0,0,0))
+            pg_recibo.insert_text((190, 291), str(numero_2),       fontsize=5,  color=(0,0,0))
         else:
             doc_recibo = fitz.open()
             doc_recibo.new_page(width=595, height=842).insert_text(
@@ -374,32 +342,23 @@ def generar_pdf_unificado_ags(datos: dict) -> str:
         doc_final.save(out)
         doc_final.close(); doc_permiso.close()
         if os.path.exists(PLANTILLA_RECIBO): doc_recibo.close()
-
         print(f"[PDF] ✅ Generado: {out}")
         return out
-
     except Exception as e:
         print(f"[PDF] Error crítico: {e}"); raise e
 
 # ===================== BACKGROUND TASK =====================
 async def _generar_y_enviar_background(chat_id: int, datos: dict, user_id: int):
-    """
-    Genera PDF e inserta en DB en background.
-    El webhook ya respondió — Telegram no manda duplicados.
-    """
     folio     = datos["folio"]
     folio_fmt = formatear_folio_completo(folio)
     try:
         pdf_path = await asyncio.to_thread(generar_pdf_unificado_ags, datos)
-
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔑 Validar Admin", callback_data=f"validar_{folio}"),
             InlineKeyboardButton(text="⏹️ Detener Timer", callback_data=f"detener_{folio}")
         ]])
-
         await bot.send_document(
-            chat_id,
-            FSInputFile(pdf_path),
+            chat_id, FSInputFile(pdf_path),
             caption=(
                 f"📄 PERMISO + RECIBO — AGUASCALIENTES\n"
                 f"Folio: {folio_fmt}\n"
@@ -409,10 +368,8 @@ async def _generar_y_enviar_background(chat_id: int, datos: dict, user_id: int):
             ),
             reply_markup=keyboard
         )
-
         hoy = datos["fecha_exp_dt"]
         ven = datos["fecha_ven_dt"]
-
         await asyncio.to_thread(lambda: supabase.table("folios_registrados").insert({
             "folio":             folio,
             "marca":             datos["marca"],
@@ -429,9 +386,7 @@ async def _generar_y_enviar_background(chat_id: int, datos: dict, user_id: int):
             "user_id":           user_id,
             "username":          datos.get("username", "Sin username")
         }).execute())
-
         await iniciar_timer_36h(user_id, folio)
-
         await bot.send_message(user_id,
             f"💰 INSTRUCCIONES DE PAGO\n\n"
             f"📄 Folio: {folio_fmt}\n"
@@ -439,13 +394,12 @@ async def _generar_y_enviar_background(chat_id: int, datos: dict, user_id: int):
             f"⏰ Tiempo límite: 36 horas\n\n"
             f"📸 Envíe la foto de su comprobante aquí mismo.\n"
             f"⚠️ Sin pago en 36h el folio se elimina automáticamente.\n\n"
-            f"📋 Para generar otro permiso use /chuleta")
-
+            f"📋 Para generar otro permiso use /banamex")
     except Exception as e:
         print(f"[ERROR background] folio {folio}: {e}")
         try:
             await bot.send_message(user_id,
-                f"❌ Error al generar el documento: {e}\n\nUse /chuleta para reintentar.")
+                f"❌ Error al generar el documento: {e}\n\nUse /banamex para reintentar.")
         except Exception:
             pass
 
@@ -469,14 +423,13 @@ async def start_cmd(message: types.Message, state: FSMContext):
         f"💰 Costo: ${PRECIO_PERMISO} MXN\n"
         "⏰ Tiempo límite: 36 horas\n\n"
         "⚠️ Su folio será eliminado automáticamente si no realiza el pago a tiempo.\n\n"
-        "📋 Use /chuleta para generar un permiso."
+        "📋 Use /banamex para generar un permiso."
     )
 
-@dp.message(Command("chuleta"))
-async def chuleta_cmd(message: types.Message, state: FSMContext):
+@dp.message(Command("banamex"))
+async def banamex_cmd(message: types.Message, state: FSMContext):
     await state.clear()
     folios_activos = obtener_folios_usuario(message.from_user.id)
-
     if folios_activos:
         texto   = "📋 FOLIOS AGS ACTIVOS\n" + "─" * 28 + "\n\n"
         botones = []
@@ -488,26 +441,18 @@ async def chuleta_cmd(message: types.Message, state: FSMContext):
                 texto += f"Folio: {formatear_folio_completo(f)}\n{h}h {m}min restantes\n\n"
             else:
                 texto += f"Folio: {formatear_folio_completo(f)}\n(sin timer)\n\n"
-            botones.append([
-                InlineKeyboardButton(
-                    text=f"⏹️ Detener timer {f}",
-                    callback_data=f"detener_{f}"
-                )
-            ])
+            botones.append([InlineKeyboardButton(
+                text=f"⏹️ Detener timer {f}", callback_data=f"detener_{f}")])
+        await message.answer(texto.strip(),
+                             reply_markup=InlineKeyboardMarkup(inline_keyboard=botones))
         await message.answer(
-            texto.strip(),
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=botones)
-        )
-        await message.answer(
-            f"Para NUEVO permiso escribe la MARCA del vehículo:\n\nCosto: ${PRECIO_PERMISO} | Plazo: 36h"
-        )
+            f"Para NUEVO permiso escribe la MARCA del vehículo:\n\nCosto: ${PRECIO_PERMISO} | Plazo: 36h")
     else:
         await message.answer(
             f"🚗 NUEVO PERMISO - AGUASCALIENTES\n\n"
             f"💰 Costo: ${PRECIO_PERMISO} MXN\n"
             f"⏰ Plazo de pago: 36 horas\n\n"
-            f"Paso 1/7: MARCA del vehículo:"
-        )
+            f"Paso 1/7: MARCA del vehículo:")
     await state.set_state(PermisoForm.marca)
 
 @dp.message(PermisoForm.marca)
@@ -554,10 +499,7 @@ async def get_nombre(message: types.Message, state: FSMContext):
     datos             = await state.get_data()
     datos["nombre"]   = limpiar_entrada(message.text)
     datos["username"] = message.from_user.username or "Sin username"
-
-    # Folio con watermark — async, nunca retrocede
-    datos["folio"] = await _generar_folio_ags_async()
-
+    datos["folio"]    = await _generar_folio_ags_async()
     tz  = ZoneInfo(TZ)
     hoy = datetime.now(tz)
     ven = hoy + timedelta(days=30)
@@ -565,20 +507,13 @@ async def get_nombre(message: types.Message, state: FSMContext):
     datos["fecha_ven"]    = ven.strftime("%d/%m/%Y")
     datos["fecha_exp_dt"] = hoy
     datos["fecha_ven_dt"] = ven
-
-    # Limpia estado ANTES de lanzar el background — evita re-triggers
     await state.clear()
-
     await message.answer(
         f"🔄 Generando permiso...\n"
         f"📄 Folio: {formatear_folio_completo(datos['folio'])}\n"
-        f"👤 Titular: {datos['nombre']}"
-    )
-
-    # Webhook regresa inmediatamente — Telegram no manda duplicados
+        f"👤 Titular: {datos['nombre']}")
     asyncio.create_task(
-        _generar_y_enviar_background(message.chat.id, datos, message.from_user.id)
-    )
+        _generar_y_enviar_background(message.chat.id, datos, message.from_user.id))
 
 # ===================== CALLBACKS =====================
 
@@ -602,7 +537,7 @@ async def callback_validar_admin(callback: CallbackQuery):
             await bot.send_message(uid,
                 f"✅ PAGO VALIDADO — AGUASCALIENTES\n"
                 f"📄 Folio: {formatear_folio_completo(folio)}\n"
-                f"Tu permiso está activo.\n\n📋 Para generar otro permiso use /chuleta")
+                f"Tu permiso está activo.\n\n📋 Para generar otro permiso use /banamex")
         except Exception as e:
             print(f"Error notificando usuario: {e}")
     else:
@@ -624,11 +559,9 @@ async def callback_detener_timer(callback: CallbackQuery):
         await callback.message.answer(
             f"⏹️ TIMER DETENIDO\n📄 Folio: {formatear_folio_completo(folio)}\n\n"
             f"El folio ya NO se eliminará automáticamente.\n\n"
-            f"📋 Para generar otro permiso use /chuleta")
+            f"📋 Para generar otro permiso use /banamex")
     else:
         await callback.answer("❌ Timer ya no está activo", show_alert=True)
-
-# ===================== ADMIN SERO =====================
 
 @dp.message(lambda m: m.text and m.text.strip().upper().startswith("SERO"))
 async def codigo_admin(message: types.Message):
@@ -637,7 +570,7 @@ async def codigo_admin(message: types.Message):
     if not folio or not folio.startswith("654"):
         await message.answer(
             "⚠️ Formato: SERO654X (folio debe iniciar con 654).\n\n"
-            "📋 Para generar otro permiso use /chuleta"); return
+            "📋 Para generar otro permiso use /banamex"); return
     cancelado = cancelar_timer_folio(folio)
     with suppress(Exception):
         await asyncio.to_thread(lambda: supabase.table("folios_registrados").update({
@@ -647,9 +580,7 @@ async def codigo_admin(message: types.Message):
     msg = (f"✅ Validación admin exitosa\n📄 Folio: {folio_fmt}\n⏹️ Timer detenido"
            if cancelado else
            f"✅ Validación admin\n📄 Folio: {folio_fmt}\n⚠️ Timer ya estaba inactivo")
-    await message.answer(msg + "\n\n📋 Para generar otro permiso use /chuleta")
-
-# ===================== COMPROBANTE FOTO =====================
+    await message.answer(msg + "\n\n📋 Para generar otro permiso use /banamex")
 
 @dp.message(lambda m: m.content_type == ContentType.PHOTO)
 async def recibir_comprobante(message: types.Message):
@@ -657,14 +588,14 @@ async def recibir_comprobante(message: types.Message):
     folios = obtener_folios_usuario(uid)
     if not folios:
         await message.answer(
-            "ℹ️ No tienes folios pendientes.\n\n📋 Para generar otro permiso use /chuleta"); return
+            "ℹ️ No tienes folios pendientes.\n\n📋 Para generar otro permiso use /banamex"); return
     if len(folios) > 1:
         lista = "\n".join(f"• {formatear_folio_completo(f)}" for f in folios)
         pending_comprobantes[uid] = "waiting_folio"
         await message.answer(
             f"📄 Varios folios activos:\n\n{lista}\n\n"
             f"Responde con el NÚMERO DE FOLIO para este comprobante.\n\n"
-            f"📋 Para generar otro permiso use /chuleta"); return
+            f"📋 Para generar otro permiso use /banamex"); return
     folio = folios[0]; cancelar_timer_folio(folio)
     with suppress(Exception):
         await asyncio.to_thread(lambda: supabase.table("folios_registrados").update({
@@ -672,7 +603,7 @@ async def recibir_comprobante(message: types.Message):
         }).eq("folio", folio).execute())
     await message.answer(
         f"✅ Comprobante recibido\n📄 Folio: {formatear_folio_completo(folio)}\n"
-        f"⏹️ Timer detenido.\n\n📋 Para generar otro permiso use /chuleta")
+        f"⏹️ Timer detenido.\n\n📋 Para generar otro permiso use /banamex")
 
 @dp.message(lambda m: m.from_user.id in pending_comprobantes
             and pending_comprobantes[m.from_user.id] == "waiting_folio")
@@ -682,7 +613,7 @@ async def especificar_folio_comprobante(message: types.Message):
     fl  = obtener_folios_usuario(uid)
     if fe not in fl:
         await message.answer(
-            "❌ Folio no en tu lista.\n\n📋 Para generar otro permiso use /chuleta"); return
+            "❌ Folio no en tu lista.\n\n📋 Para generar otro permiso use /banamex"); return
     cancelar_timer_folio(fe); del pending_comprobantes[uid]
     with suppress(Exception):
         await asyncio.to_thread(lambda: supabase.table("folios_registrados").update({
@@ -690,7 +621,7 @@ async def especificar_folio_comprobante(message: types.Message):
         }).eq("folio", fe).execute())
     await message.answer(
         f"✅ Comprobante asociado.\n📄 Folio: {formatear_folio_completo(fe)}\n\n"
-        f"📋 Para generar otro permiso use /chuleta")
+        f"📋 Para generar otro permiso use /banamex")
 
 @dp.message(Command("folios"))
 async def ver_folios_activos(message: types.Message):
@@ -698,7 +629,7 @@ async def ver_folios_activos(message: types.Message):
     folios = obtener_folios_usuario(uid)
     if not folios:
         await message.answer(
-            "ℹ️ No hay folios activos.\n\n📋 Para generar otro permiso use /chuleta"); return
+            "ℹ️ No hay folios activos.\n\n📋 Para generar otro permiso use /banamex"); return
     lista   = []
     botones = []
     for f in folios:
@@ -710,14 +641,12 @@ async def ver_folios_activos(message: types.Message):
         else:
             lista.append(f"• {formatear_folio_completo(f)} (sin timer)")
         botones.append([InlineKeyboardButton(
-            text=f"⏹️ Detener {f}", callback_data=f"detener_{f}"
-        )])
+            text=f"⏹️ Detener {f}", callback_data=f"detener_{f}")])
     await message.answer(
         f"📋 FOLIOS AGS ACTIVOS ({len(folios)})\n\n" + "\n".join(lista) +
         "\n\n⏰ Timer 36h por folio.\n📸 Envía imagen para comprobante.\n\n"
-        "📋 Para generar otro permiso use /chuleta",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=botones)
-    )
+        "📋 Para generar otro permiso use /banamex",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=botones))
 
 @dp.message()
 async def fallback(message: types.Message):
@@ -740,7 +669,7 @@ async def lifespan(app: FastAPI):
     await bot.set_webhook(webhook_url, allowed_updates=["message", "callback_query"])
     _keep_task = asyncio.create_task(keep_alive())
     print(f"[WEBHOOK] {webhook_url}")
-    print(f"[SISTEMA] AGS v7.1 listo — "
+    print(f"[SISTEMA] AGS v7.2 listo — "
           f"siguiente folio: {FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}")
     yield
     if _keep_task:
@@ -748,7 +677,7 @@ async def lifespan(app: FastAPI):
         with suppress(asyncio.CancelledError): await _keep_task
     await bot.session.close()
 
-app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="7.1")
+app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="7.2")
 app.add_middleware(SessionMiddleware, secret_key="tu_clave_secreta_super_segura_123456")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -888,16 +817,15 @@ async def registro_admin_post(request: Request,
             if fecha_expedicion and fecha_expedicion.strip() else datetime.now(tz).date()
         fecha_ven      = datetime.fromisoformat(fecha_vencimiento).date() \
             if fecha_vencimiento and fecha_vencimiento.strip() else fecha_exp + timedelta(days=30)
-
         datos_pdf = {
-            "folio":       folio_generado,
-            "marca":       marca.upper(), "linea":  linea.upper(),  "anio":  anio,
-            "serie":       numero_serie.upper(), "motor": numero_motor.upper(),
-            "color":       color.upper(), "nombre": contribuyente.upper(),
-            "fecha_exp":   fecha_exp.strftime("%d/%m/%Y"),
-            "fecha_ven":   fecha_ven.strftime("%d/%m/%Y"),
-            "fecha_exp_dt":datetime.combine(fecha_exp, datetime.min.time()).replace(tzinfo=tz),
-            "fecha_ven_dt":datetime.combine(fecha_ven, datetime.min.time()).replace(tzinfo=tz)
+            "folio":        folio_generado,
+            "marca":        marca.upper(),  "linea":  linea.upper(), "anio": anio,
+            "serie":        numero_serie.upper(), "motor": numero_motor.upper(),
+            "color":        color.upper(),  "nombre": contribuyente.upper(),
+            "fecha_exp":    fecha_exp.strftime("%d/%m/%Y"),
+            "fecha_ven":    fecha_ven.strftime("%d/%m/%Y"),
+            "fecha_exp_dt": datetime.combine(fecha_exp, datetime.min.time()).replace(tzinfo=tz),
+            "fecha_ven_dt": datetime.combine(fecha_ven, datetime.min.time()).replace(tzinfo=tz)
         }
         generar_pdf_unificado_ags(datos_pdf)
         supabase.table("folios_registrados").insert({
@@ -973,7 +901,7 @@ h1{{color:#1a237e;font-size:26px}} h2{{color:#283593;font-size:20px;font-weight:
 <h2>Estado de Aguascalientes</h2>
 <div class="badge">✅ Sistema Operativo</div>
 <div class="info"><ul style="padding-left:20px">
-<li><strong>Versión:</strong> 7.1 — Timeout fix + Watermark + /chuleta</li>
+<li><strong>Versión:</strong> 7.2 — /banamex</li>
 <li><strong>Costo:</strong> ${PRECIO_PERMISO} MXN</li>
 <li><strong>Tiempo límite:</strong> 36 horas</li>
 <li><strong>Timers activos:</strong> {len(timers_activos)}</li>
@@ -989,7 +917,7 @@ async def health_check():
         bot_info = await bot.get_me()
         return {
             "status":    "healthy",
-            "version":   "7.1",
+            "version":   "7.2",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
             "services": {
                 "database":        "conectado",
@@ -1004,5 +932,5 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"[SISTEMA] AGS v7.1 iniciando...")
+    print(f"[SISTEMA] AGS v7.2 iniciando...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

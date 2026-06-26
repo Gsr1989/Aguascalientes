@@ -36,8 +36,8 @@ ENTIDAD          = "ags"
 PRECIO_PERMISO   = 180
 TZ               = os.getenv("TZ", "America/Mexico_City")
 
-ADMIN_USER = "Serg890105tm3"
-ADMIN_PASS = "Serg890105tm3"
+ADMIN_USER = "Placa893909"
+ADMIN_PASS = "Placa893909"
 
 TEMPLATES_DIR = "templates"
 STATIC_DIR    = "static"

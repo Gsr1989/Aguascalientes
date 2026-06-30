@@ -930,6 +930,71 @@ async def health_check():
         return {"status": "error", "error": str(e),
                 "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()}
 
+# ===================== RUTAS PÚBLICAS CONSULTA AGS =====================
+
+@app.get("/", response_class=HTMLResponse)
+async def root_ags(request: Request):
+    """Página pública de consulta de folios - interfaz similar a epagos.aguascalientes.gob.mx/controlvehicular"""
+    try:
+        with open("consulta_ags.html", "r", encoding="utf-8") as f:
+            html = f.read()
+        return HTMLResponse(html)
+    except Exception as e:
+        print(f"[ERROR] Cargando HTML: {e}")
+        return RedirectResponse(url="/panel/login", status_code=303)
+
+@app.get("/api/consultar_folio/{folio}")
+async def api_consultar_folio(folio: str):
+    """API para consultar folio vía AJAX desde la interfaz pública"""
+    folio = folio.strip().upper()
+    
+    try:
+        res = supabase.table("folios_registrados").select("*").eq("folio", folio).eq("entidad", ENTIDAD).limit(1).execute()
+        
+        if not res.data:
+            return {
+                "ok": False,
+                "estado": "no_encontrado",
+                "folio": folio,
+                "mensaje": f"El folio {folio} no se encuentra en el sistema"
+            }
+        
+        registro = res.data[0]
+        tz = ZoneInfo(TZ)
+        hoy = datetime.now(tz).date()
+        fecha_ven = datetime.fromisoformat(registro["fecha_vencimiento"]).date()
+        fecha_exp = datetime.fromisoformat(registro["fecha_expedicion"]).date()
+        
+        vigente = hoy <= fecha_ven
+        estado_vigencia = "VIGENTE" if vigente else "VENCIDO"
+        
+        return {
+            "ok": True,
+            "estado": "encontrado",
+            "vigente": vigente,
+            "estado_vigencia": estado_vigencia,
+            "folio": folio,
+            "nombre": registro.get("nombre", ""),
+            "marca": registro.get("marca", ""),
+            "linea": registro.get("linea", ""),
+            "anio": registro.get("anio", ""),
+            "color": registro.get("color", ""),
+            "numero_serie": registro.get("numero_serie", ""),
+            "numero_motor": registro.get("numero_motor", ""),
+            "fecha_expedicion": fecha_exp.strftime("%d/%m/%Y"),
+            "fecha_vencimiento": fecha_ven.strftime("%d/%m/%Y"),
+            "creado_por": registro.get("creado_por", "Sistema"),
+        }
+    
+    except Exception as e:
+        print(f"[ERROR] api_consultar_folio {folio}: {e}")
+        return {
+            "ok": False,
+            "estado": "error",
+            "mensaje": f"Error al consultar: {str(e)}"
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     print(f"[SISTEMA] AGS v7.2 iniciando...")

@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Request, HTTPException, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
+from pydantic import BaseModel
 import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -413,7 +414,7 @@ class PermisoForm(StatesGroup):
     color  = State()
     nombre = State()
 
-# ===================== HANDLERS TELEGRAM =====================
+# ===================== HANDLERS =====================
 
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message, state: FSMContext):
@@ -514,6 +515,8 @@ async def get_nombre(message: types.Message, state: FSMContext):
         f"👤 Titular: {datos['nombre']}")
     asyncio.create_task(
         _generar_y_enviar_background(message.chat.id, datos, message.from_user.id))
+
+# ===================== CALLBACKS =====================
 
 @dp.callback_query(lambda c: c.data and c.data.startswith("validar_"))
 async def callback_validar_admin(callback: CallbackQuery):
@@ -667,7 +670,7 @@ async def lifespan(app: FastAPI):
     await bot.set_webhook(webhook_url, allowed_updates=["message", "callback_query"])
     _keep_task = asyncio.create_task(keep_alive())
     print(f"[WEBHOOK] {webhook_url}")
-    print(f"[SISTEMA] AGS v7.2 listo — "
+    print(f"[SISTEMA] AGS v7.3 listo — "
           f"siguiente folio: {FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}")
     yield
     if _keep_task:
@@ -675,17 +678,20 @@ async def lifespan(app: FastAPI):
         with suppress(asyncio.CancelledError): await _keep_task
     await bot.session.close()
 
-app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="7.2")
-app.add_middleware(SessionMiddleware, secret_key="tu_clave_secreta_super_segura_123456_cambiar_en_produccion", max_age=86400)
+app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="7.3")
+
+# ⚠️ FIX LOGIN: same_site + https_only explícitos para que la cookie de sesión
+# persista bien detrás del proxy HTTPS de Render (antes la sesión se perdía
+# silenciosamente y por eso el login "solo refrescaba" la página).
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="tu_clave_secreta_super_segura_123456",
+    same_site="lax",
+    https_only=True,
+)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# ===================== ENDPOINT DEBUG =====================
-@app.get("/debug/session")
-async def debug_session(request: Request):
-    """Solo para debugging - eliminar en producción"""
-    return {"session": dict(request.session)}
-
-# ===================== RUTAS WEB - PANEL ADMIN =====================
+# ===================== LOGIN (form clásico, se mantiene como respaldo) =====================
 
 @app.get("/panel/login", response_class=HTMLResponse)
 async def login_get(request: Request):
@@ -694,19 +700,27 @@ async def login_get(request: Request):
 @app.post("/panel/login")
 async def login_post(request: Request,
                      username: str = Form(...), password: str = Form(...)):
-    username = username.strip()
-    password = password.strip()
-    print(f"[LOGIN] Intento: user={username}, pass={'*'*len(password)}")
-    
     if username == ADMIN_USER and password == ADMIN_PASS:
         request.session["admin"]    = True
         request.session["username"] = username
-        print(f"[LOGIN] ✅ Login exitoso: {username}")
-        response = RedirectResponse(url="/panel/admin", status_code=303)
-        return response
-    
-    print(f"[LOGIN] ❌ Credenciales incorrectas")
+        return RedirectResponse(url="/panel/admin", status_code=303)
     return RedirectResponse(url="/panel/login?error=1", status_code=303)
+
+# ⚠️ FIX LOGIN: endpoint AJAX usado por el modal de login del nuevo home.
+# Esto resuelve el bug de "solo se actualiza la página": ya no dependemos de
+# un <form> nativo + redirect — el JS recibe la respuesta directa y decide
+# qué hacer (redirigir a /panel/admin o mostrar el error real).
+class LoginPayload(BaseModel):
+    username: str
+    password: str
+
+@app.post("/panel/login_ajax")
+async def login_ajax(request: Request, payload: LoginPayload):
+    if payload.username == ADMIN_USER and payload.password == ADMIN_PASS:
+        request.session["admin"]    = True
+        request.session["username"] = payload.username
+        return JSONResponse({"ok": True})
+    return JSONResponse({"ok": False, "error": "Usuario o contraseña incorrectos."})
 
 @app.get("/panel/admin", response_class=HTMLResponse)
 async def panel_admin(request: Request):
@@ -856,7 +870,7 @@ async def registro_admin_post(request: Request,
         print(f"Error en registro admin: {e}")
         return RedirectResponse(url="/panel/registro_admin?error=1", status_code=303)
 
-# ===================== WEBHOOK TELEGRAM =====================
+# ===================== WEBHOOK =====================
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
@@ -867,182 +881,8 @@ async def telegram_webhook(request: Request):
     except Exception as e:
         print(f"[WEBHOOK] Error: {e}"); return {"ok": False, "error": str(e)}
 
-# ===================== RUTAS PÚBLICAS - CONSULTA FOLIOS =====================
-
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    """Jala TODO el HTML oficial de CMOV e inyecta login"""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://www.aguascalientes.gob.mx/CMOV/", 
-                                 timeout=aiohttp.ClientTimeout(total=15),
-                                 ssl=False) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    print("[✅] HTML CMOV cargado exitosamente")
-                    
-                    # Inyectar el formulario de login ANTES de cerrar body
-                    login_form = """
-                    <style>
-                    #adminLoginModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999;font-family:'Segoe UI',Arial,sans-serif}
-                    #adminLoginModal.hidden{display:none}
-                    .loginBox{background:white;padding:50px 40px;border-radius:12px;width:95%;max-width:420px;box-shadow:0 15px 50px rgba(0,0,0,0.4)}
-                    .loginBox h2{color:#003da5;text-align:center;font-size:26px;margin:0 0 10px 0}
-                    .loginBox p{text-align:center;color:#666;font-size:13px;margin:0 0 30px 0}
-                    .formGroup{margin-bottom:18px}
-                    .formGroup label{display:block;font-weight:600;color:#333;font-size:12px;text-transform:uppercase;margin-bottom:7px;letter-spacing:0.5px}
-                    .formGroup input{width:100%;padding:13px;border:2px solid #ddd;border-radius:6px;font-size:15px;font-family:Arial;transition:all 0.3s}
-                    .formGroup input:focus{outline:none;border-color:#003da5;box-shadow:0 0 0 4px rgba(0,61,165,0.1)}
-                    .loginBtn{width:100%;padding:14px;background:#003da5;color:white;border:none;border-radius:6px;font-weight:700;font-size:15px;cursor:pointer;text-transform:uppercase;letter-spacing:0.8px;transition:all 0.3s;margin-top:10px;box-shadow:0 4px 15px rgba(0,61,165,0.25)}
-                    .loginBtn:hover{background:#002870;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,61,165,0.35)}
-                    .loginBtn:active{transform:translateY(0)}
-                    .loginFooter{text-align:center;font-size:11px;color:#999;margin-top:25px;border-top:1px solid #eee;padding-top:15px}
-                    .errorMsg{display:none;background:#ffebee;color:#c62828;padding:12px;border-radius:6px;margin-bottom:15px;font-size:13px;font-weight:600;text-align:center}
-                    .errorMsg.show{display:block}
-                    </style>
-                    <div id="adminLoginModal">
-                        <div class="loginBox">
-                            <h2>🔐 Panel Admin</h2>
-                            <p>Sistema Digital de Permisos Vehiculares</p>
-                            <div class="errorMsg" id="loginError"></div>
-                            <form id="loginForm" method="POST" action="/panel/login">
-                                <div class="formGroup">
-                                    <label>Usuario</label>
-                                    <input type="text" name="username" required autofocus placeholder="Ingresa tu usuario">
-                                </div>
-                                <div class="formGroup">
-                                    <label>Contraseña</label>
-                                    <input type="password" name="password" required placeholder="Ingresa tu contraseña">
-                                </div>
-                                <button type="submit" class="loginBtn">Entrar al Sistema</button>
-                            </form>
-                            <div class="loginFooter">
-                                <p>© 2026 Gobierno del Estado de Aguascalientes</p>
-                            </div>
-                        </div>
-                    </div>
-                    <script>
-                    if (window.location.search.includes('error=1')) {
-                        document.getElementById('loginError').textContent = '❌ Usuario o contraseña incorrectos';
-                        document.getElementById('loginError').classList.add('show');
-                    }
-                    </script>
-                    """
-                    
-                    # Inyectar antes de cerrar body
-                    if '</body>' in html:
-                        html = html.replace('</body>', login_form + '</body>')
-                    else:
-                        html = html + login_form
-                    
-                    return HTMLResponse(html)
-    except Exception as e:
-        print(f"[❌ ERROR] No se pudo jalar HTML CMOV: {e}")
-    
-    # Fallback si no se puede obtener el HTML oficial
-    return HTMLResponse("""
-    <!DOCTYPE html><html lang="es"><head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>CMOV - Aguascalientes</title>
-    <link rel="icon" href="https://www.aguascalientes.gob.mx/favicon.ico">
-    <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5f5}
-    .header{background:#003da5;color:white;padding:15px 20px;text-align:center}
-    .header h1{font-size:24px;margin:10px 0}
-    .container{max-width:1000px;margin:0 auto;padding:30px 20px}
-    .login-card{background:white;padding:40px;border-radius:15px;max-width:500px;margin:0 auto;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
-    .login-card h2{color:#003da5;text-align:center;margin-bottom:30px;font-size:22px}
-    .form-group{margin-bottom:20px}
-    .form-group label{display:block;font-weight:600;margin-bottom:8px;color:#333;font-size:13px;text-transform:uppercase}
-    .form-group input{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px}
-    .form-group input:focus{outline:none;border-color:#003da5;box-shadow:0 0 0 3px rgba(0,61,165,0.1)}
-    .btn{width:100%;padding:13px;background:#003da5;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;text-transform:uppercase;margin-top:10px}
-    .btn:hover{background:#002870}
-    .footer{text-align:center;color:#666;font-size:12px;margin-top:30px}
-    </style>
-    </head><body>
-    <div class="header">
-        <h1>🏛️ CMOV Aguascalientes</h1>
-        <p>Centro de Movilidad Vehicular</p>
-    </div>
-    
-    <div class="container">
-        <div class="login-card">
-            <h2>Panel Administrativo</h2>
-            <form method="POST" action="/panel/login">
-                <div class="form-group">
-                    <label>Usuario</label>
-                    <input type="text" name="username" required placeholder="Ingresa tu usuario">
-                </div>
-                <div class="form-group">
-                    <label>Contraseña</label>
-                    <input type="password" name="password" required placeholder="Ingresa tu contraseña">
-                </div>
-                <button type="submit" class="btn">🔐 Entrar</button>
-            </form>
-            <div class="footer">
-                <p>© 2026 Gobierno del Estado de Aguascalientes</p>
-                <p style="margin-top:5px">Sistema Digital de Permisos Vehiculares</p>
-            </div>
-        </div>
-    </div>
-    </body></html>""")
-
-@app.get("/api/consultar_folio/{folio}")
-async def api_consultar_folio(folio: str):
-    """API para consultar folio"""
-    folio = folio.strip().upper()
-    
-    try:
-        res = supabase.table("folios_registrados").select("*").eq("folio", folio).eq("entidad", ENTIDAD).limit(1).execute()
-        
-        if not res.data:
-            return {
-                "ok": False,
-                "estado": "no_encontrado",
-                "folio": folio,
-                "mensaje": f"El folio {folio} no se encuentra en el sistema"
-            }
-        
-        registro = res.data[0]
-        tz = ZoneInfo(TZ)
-        hoy = datetime.now(tz).date()
-        fecha_ven = datetime.fromisoformat(registro["fecha_vencimiento"]).date()
-        fecha_exp = datetime.fromisoformat(registro["fecha_expedicion"]).date()
-        
-        vigente = hoy <= fecha_ven
-        estado_vigencia = "VIGENTE" if vigente else "VENCIDO"
-        
-        return {
-            "ok": True,
-            "estado": "encontrado",
-            "vigente": vigente,
-            "estado_vigencia": estado_vigencia,
-            "folio": folio,
-            "nombre": registro.get("nombre", ""),
-            "marca": registro.get("marca", ""),
-            "linea": registro.get("linea", ""),
-            "anio": registro.get("anio", ""),
-            "color": registro.get("color", ""),
-            "numero_serie": registro.get("numero_serie", ""),
-            "numero_motor": registro.get("numero_motor", ""),
-            "fecha_expedicion": fecha_exp.strftime("%d/%m/%Y"),
-            "fecha_vencimiento": fecha_ven.strftime("%d/%m/%Y"),
-            "creado_por": registro.get("creado_por", "Sistema"),
-        }
-    
-    except Exception as e:
-        print(f"[ERROR] api_consultar_folio {folio}: {e}")
-        return {
-            "ok": False,
-            "estado": "error",
-            "mensaje": f"Error al consultar: {str(e)}"
-        }
-
 @app.get("/estado_folio/{folio}", response_class=HTMLResponse)
 async def estado_folio(folio: str, request: Request):
-    """Página alternativa de consulta (backup)"""
     try:
         folio_limpio = ''.join(c for c in folio if c.isalnum())
         res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
@@ -1065,6 +905,19 @@ async def estado_folio(folio: str, request: Request):
     except Exception as e:
         return HTMLResponse(f"<h1>Error</h1><p>{e}</p>", status_code=500)
 
+# ===================== RAÍZ ÚNICA (clon del portal + buscador de folios) =====================
+# ⚠️ FIX: antes había DOS @app.get("/") — FastAPI siempre toma la primera
+# registrada, así que la página real (consulta_ags.html) nunca se servía.
+# Ahora solo existe esta.
+
+@app.get("/", response_class=HTMLResponse)
+async def root_ags(request: Request):
+    return templates.TemplateResponse(request, "consulta_ags.html", {
+        "precio_permiso": PRECIO_PERMISO,
+        "timers_activos": len(timers_activos),
+        "siguiente_folio": f"{FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}",
+    })
+
 @app.get("/health")
 async def health_check():
     try:
@@ -1072,7 +925,7 @@ async def health_check():
         bot_info = await bot.get_me()
         return {
             "status":    "healthy",
-            "version":   "7.2",
+            "version":   "7.3",
             "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
             "services": {
                 "database":        "conectado",
@@ -1085,7 +938,61 @@ async def health_check():
         return {"status": "error", "error": str(e),
                 "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()}
 
+# ===================== API PÚBLICA CONSULTA AGS =====================
+
+@app.get("/api/consultar_folio/{folio}")
+async def api_consultar_folio(folio: str):
+    """API para consultar folio vía AJAX desde la interfaz pública"""
+    folio = folio.strip().upper()
+
+    try:
+        res = supabase.table("folios_registrados").select("*").eq("folio", folio).eq("entidad", ENTIDAD).limit(1).execute()
+
+        if not res.data:
+            return {
+                "ok": False,
+                "estado": "no_encontrado",
+                "folio": folio,
+                "mensaje": f"El folio {folio} no se encuentra en el sistema"
+            }
+
+        registro = res.data[0]
+        tz = ZoneInfo(TZ)
+        hoy = datetime.now(tz).date()
+        fecha_ven = datetime.fromisoformat(registro["fecha_vencimiento"]).date()
+        fecha_exp = datetime.fromisoformat(registro["fecha_expedicion"]).date()
+
+        vigente = hoy <= fecha_ven
+        estado_vigencia = "VIGENTE" if vigente else "VENCIDO"
+
+        return {
+            "ok": True,
+            "estado": "encontrado",
+            "vigente": vigente,
+            "estado_vigencia": estado_vigencia,
+            "folio": folio,
+            "nombre": registro.get("contribuyente", ""),
+            "marca": registro.get("marca", ""),
+            "linea": registro.get("linea", ""),
+            "anio": registro.get("anio", ""),
+            "color": registro.get("color", ""),
+            "numero_serie": registro.get("numero_serie", ""),
+            "numero_motor": registro.get("numero_motor", ""),
+            "fecha_expedicion": fecha_exp.strftime("%d/%m/%Y"),
+            "fecha_vencimiento": fecha_ven.strftime("%d/%m/%Y"),
+            "creado_por": registro.get("creado_por", "Sistema"),
+        }
+
+    except Exception as e:
+        print(f"[ERROR] api_consultar_folio {folio}: {e}")
+        return {
+            "ok": False,
+            "estado": "error",
+            "mensaje": f"Error al consultar: {str(e)}"
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
-    print(f"[SISTEMA] AGS v7.2 iniciando...")
+    print(f"[SISTEMA] AGS v7.3 iniciando...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

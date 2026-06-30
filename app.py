@@ -950,7 +950,7 @@ h1{{color:#1a237e;font-size:26px}} h2{{color:#283593;font-size:20px;font-weight:
 async def root_ags(request: Request):
     """Página pública de consulta de folios - interfaz similar a epagos.aguascalientes.gob.mx/controlvehicular"""
     try:
-        with open("consulta_ags.html", "r", encoding="utf-8") as f:
+        with open(os.path.join(TEMPLATES_DIR, "consulta_ags.html"), "r", encoding="utf-8") as f:
             html = f.read()
         return HTMLResponse(html)
     except Exception as e:

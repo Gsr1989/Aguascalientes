@@ -871,79 +871,118 @@ async def telegram_webhook(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Interfaz pública de consulta - jala el HTML de epagos.aguascalientes.gob.mx y lo personaliza"""
-    try:
-        # Intentar obtener el HTML original del portal de Aguascalientes con aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://epagos.aguascalientes.gob.mx/controlvehicular", timeout=aiohttp.ClientTimeout(total=5)) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    # Inyectar script personalizado para consumir nuestra API
-                    inject_script = """
-                    <script>
-                    window.API_BASE = window.location.origin;
-                    // Override del formulario de búsqueda original
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const form = document.querySelector('form');
-                        if (form) {
-                            form.onsubmit = function(e) {
-                                e.preventDefault();
-                                const folio = document.querySelector('input[name="folio"], input[placeholder*="placa"], input[type="text"]').value.toUpperCase();
-                                if (!folio) return alert('Ingresa un folio válido');
-                                fetch(window.API_BASE + '/api/consultar_folio/' + folio)
-                                    .then(r => r.json())
-                                    .then(d => {
-                                        console.log(d);
-                                        if (d.ok) {
-                                            alert('✅ Folio ' + d.folio + ' - ' + d.estado_vigencia);
-                                        } else {
-                                            alert('❌ ' + d.mensaje);
-                                        }
-                                    })
-                                    .catch(e => alert('Error: ' + e.message));
-                            };
-                        }
-                    });
-                    </script>
-                    """
-                    html = html.replace('</body>', inject_script + '</body>')
-                    return HTMLResponse(html)
-    except Exception as e:
-        print(f"[ERROR] Cargando portal Aguascalientes: {e}")
-    
-    # Fallback a página simple si no se puede obtener el original
+    """Interfaz pública de consulta - HTML limpio"""
     return HTMLResponse(f"""
     <!DOCTYPE html><html><head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Consulta de Permisos - Aguascalientes</title>
     <style>
-    body{{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}}
-    .container{{max-width:600px;margin:0 auto;background:white;padding:30px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1)}}
-    h1{{color:#003da5;text-align:center}}
-    input{{width:100%;padding:10px;margin:10px 0;border:2px solid #e0e0e0;border-radius:5px;font-size:16px}}
-    button{{width:100%;padding:12px;background:#003da5;color:white;border:none;border-radius:5px;font-weight:bold;cursor:pointer}}
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#f5f5f5,#e8e8e8);min-height:100vh;padding:20px}}
+    .container{{max-width:600px;margin:0 auto}}
+    .header{{background:white;padding:20px;border-bottom:4px solid #003da5;border-radius:10px 10px 0 0;text-align:center;margin-bottom:30px}}
+    .header img{{height:50px;margin-bottom:10px}}
+    .header h1{{color:#003da5;font-size:24px;font-weight:700;margin:10px 0}}
+    .header p{{color:#666;font-size:13px}}
+    .card{{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);margin-bottom:20px}}
+    .card h2{{color:#003da5;font-size:18px;font-weight:700;margin-bottom:15px;text-transform:uppercase}}
+    .form-group{{margin-bottom:15px}}
+    .form-group label{{display:block;font-weight:600;font-size:13px;color:#333;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}}
+    .form-group input{{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:6px;font-size:16px;transition:all 0.3s}}
+    .form-group input:focus{{outline:none;border-color:#003da5;box-shadow:0 0 0 3px rgba(0,61,165,0.1)}}
+    .btn{{width:100%;padding:14px;background:#003da5;color:white;border:none;border-radius:6px;font-weight:700;font-size:16px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all 0.3s;box-shadow:0 4px 12px rgba(0,61,165,0.2)}}
+    .btn:hover{{background:#002870;transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,61,165,0.3)}}
+    .btn:active{{transform:translateY(0)}}
+    .result{{margin-top:20px;padding:15px;border-radius:6px;display:none;text-align:center;font-weight:600}}
+    .result.success{{background:#e8f5e9;color:#1b5e20;border-left:5px solid #4caf50}}
+    .result.error{{background:#ffebee;color:#c62828;border-left:5px solid #f44336}}
+    .info-box{{background:#f9f9f9;border-left:4px solid #003da5;padding:15px;border-radius:4px;font-size:13px;color:#666;line-height:1.6;margin-top:20px}}
+    .info-box strong{{color:#003da5}}
+    .footer{{text-align:center;padding:20px;color:#666;font-size:12px}}
+    .links{{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}}
+    .links a{{padding:8px 14px;background:#f0f0f0;color:#003da5;text-decoration:none;border-radius:4px;font-size:13px;font-weight:600;transition:all 0.3s}}
+    .links a:hover{{background:#003da5;color:white}}
     </style></head><body>
     <div class="container">
-    <h1>🔍 Consulta de Permisos</h1>
-    <form onsubmit="buscar(event)">
-        <input type="text" id="folio" placeholder="Ingresa tu folio" required>
-        <button type="submit">Buscar</button>
-    </form>
+        <div class="header">
+            <h1>🔍 Consulta de Permisos</h1>
+            <p>Estado de Aguascalientes</p>
+        </div>
+        
+        <div class="card">
+            <h2>Buscar Folio</h2>
+            <form onsubmit="buscar(event)">
+                <div class="form-group">
+                    <label for="folio">Número de Folio</label>
+                    <input type="text" id="folio" placeholder="Ej: 654001234" required autofocus style="text-transform:uppercase">
+                </div>
+                <button type="submit" class="btn">🔍 Buscar</button>
+            </form>
+            <div class="result" id="resultado"></div>
+            
+            <div class="info-box">
+                <strong>⚠️ Información:</strong> Ingresa tu número de folio para consultar el estado de tu permiso vehicular digital.
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Panel Administrativo</h2>
+            <p style="color:#666;margin-bottom:15px;font-size:14px">Acceso para administradores del sistema</p>
+            <a href="/panel/login" style="display:inline-block;padding:12px 30px;background:#003da5;color:white;text-decoration:none;border-radius:6px;font-weight:700;transition:all 0.3s" onmouseover="this.style.background='#002870'" onmouseout="this.style.background='#003da5'">
+                🔐 Ir al Panel
+            </a>
+        </div>
+        
+        <div class="footer">
+            <p>© 2026 Gobierno del Estado de Aguascalientes | Sistema Digital de Permisos</p>
+            <p style="margin-top:10px">Teléfono: (449) 469-9898</p>
+        </div>
     </div>
+    
     <script>
-    function buscar(e){{
+    async function buscar(e){{
         e.preventDefault();
-        const folio = document.getElementById('folio').value.toUpperCase();
-        fetch('/api/consultar_folio/' + folio)
-            .then(r => r.json())
-            .then(d => {{
-                if (d.ok) {{
-                    alert('✅ ' + d.folio + ' - ' + d.estado_vigencia + '\\n' + d.nombre);
-                }} else {{
-                    alert('❌ ' + d.mensaje);
-                }}
-            }})
-            .catch(e => alert('Error: ' + e.message));
+        const folio = document.getElementById('folio').value.toUpperCase().trim();
+        const resultado = document.getElementById('resultado');
+        
+        if (!folio) {{
+            resultado.textContent = '❌ Ingresa un folio válido';
+            resultado.className = 'result error';
+            resultado.style.display = 'block';
+            return;
+        }}
+        
+        resultado.textContent = '⏳ Consultando...';
+        resultado.className = 'result';
+        resultado.style.display = 'block';
+        
+        try {{
+            const response = await fetch('/api/consultar_folio/' + folio);
+            const data = await response.json();
+            
+            if (data.ok) {{
+                resultado.innerHTML = `
+                    <div style="text-align:left">
+                        <strong style="font-size:16px">✅ Folio ${{data.folio}} - ${{data.estado_vigencia}}</strong><br><br>
+                        <div style="background:white;padding:12px;border-radius:4px;margin-top:10px;text-align:left;font-size:13px">
+                            <strong>Titular:</strong> ${{data.nombre}}<br>
+                            <strong>Vehículo:</strong> ${{data.marca}} ${{data.linea}} (${{data.anio}})<br>
+                            <strong>Expedición:</strong> ${{data.fecha_expedicion}}<br>
+                            <strong>Vencimiento:</strong> ${{data.fecha_vencimiento}}
+                        </div>
+                    </div>
+                `;
+                resultado.className = 'result success';
+            }} else {{
+                resultado.textContent = '❌ ' + data.mensaje;
+                resultado.className = 'result error';
+            }}
+            resultado.style.display = 'block';
+        }} catch (e) {{
+            resultado.textContent = '❌ Error de conexión: ' + e.message;
+            resultado.className = 'result error';
+            resultado.style.display = 'block';
+        }}
     }}
     </script>
     </body></html>""")

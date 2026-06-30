@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, user-scalable=no">
+<meta name="theme-color" content="#f6f8fc">
+<title>Control Vehicular Digital | Gobierno del Estado de Aguascalientes</title>
+<link rel="icon" type="image/png" href="https://aguascalientes.gob.mx/portalgea/assets/img/favicon.png">
+
+<!-- ===== CSS oficiales del portal ===== -->
+<link rel="stylesheet" href="/static/css/sigod.min.css">
+<link rel="stylesheet" href="/static/css/all.min.css">
+<link rel="stylesheet" href="/static/css/swiper-bundle.min.css">
+
+<style>
+  :root{
+    --gea-blue:#2f328a; --gea-violet:#6a35d8; --gea-magenta:#d937a8;
+    --gea-cyan:#29b9c8; --gea-lime:#b8d633; --gea-ink:#20223a;
+  }
+  body{ font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:#f6f7fb; }
+
+  /* ---- Hero control vehicular (clonado del banner oficial) ---- */
+  .hero-cv{
+    position:relative; overflow:hidden; border-radius:14px;
+    background:linear-gradient(135deg, var(--gea-blue) 0%, var(--gea-violet) 60%, var(--gea-magenta) 100%);
+    color:#fff; padding:48px 32px; margin:28px 0;
+    box-shadow:0 22px 60px rgba(32,34,58,.18);
+  }
+  .hero-cv h1{ font-weight:800; font-size:2.1rem; margin-bottom:6px;}
+  .hero-cv .badge-cv{
+    display:inline-block; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4);
+    padding:6px 16px; border-radius:20px; font-size:.85rem; margin-bottom:18px;
+  }
+  .hero-cv img.icon{ width:64px; }
+
+  /* ---- Card de consulta ---- */
+  .card-consulta{
+    background:#fff; border-radius:14px; padding:28px;
+    box-shadow:0 12px 34px rgba(32,34,58,.10); margin-top:-40px; position:relative; z-index:2;
+  }
+  .card-consulta input{
+    border:1px solid #e7e8f1; border-radius:8px; padding:12px 14px; font-size:1rem; width:100%;
+  }
+  .btn-gea{
+    background:linear-gradient(135deg, var(--gea-blue), var(--gea-violet));
+    color:#fff; border:0; border-radius:8px; padding:12px 22px; font-weight:600;
+  }
+  .btn-gea:hover{ filter:brightness(1.08); color:#fff; }
+
+  /* ---- Resultado de consulta ---- */
+  #resultado{ display:none; margin-top:22px; }
+  .estado-pill{ padding:5px 14px; border-radius:20px; font-weight:700; font-size:.85rem; }
+  .estado-vigente{ background:#e6f7ee; color:#1d8a4f; border:1px solid #b7e9cc; }
+  .estado-vencido{ background:#fdecec; color:#c0392b; border:1px solid #f5c2c0; }
+  .estado-no{ background:#f1f1f5; color:#555; border:1px solid #e0e0e8; }
+
+  /* ---- Trámites relacionados ---- */
+  .tramite-card{
+    background:#fff; border-radius:12px; padding:20px; text-align:center;
+    box-shadow:0 8px 20px rgba(32,34,58,.06); height:100%; transition:.2s;
+  }
+  .tramite-card:hover{ transform:translateY(-4px); box-shadow:0 14px 30px rgba(32,34,58,.12); }
+  .tramite-card img{ width:54px; margin-bottom:10px; }
+
+  /* ---- Footer institucional ---- */
+  footer.gea-footer{
+    background:var(--gea-ink); color:#cfd1e6; padding:30px 0; margin-top:50px; font-size:.85rem;
+  }
+  footer.gea-footer a{ color:#cfd1e6; text-decoration:none; }
+  footer.gea-footer a:hover{ color:#fff; }
+
+  /* ---- Acceso admin discreto ---- */
+  .admin-access{
+    position:fixed; bottom:14px; right:14px; z-index:50;
+    background:#fff; border-radius:30px; box-shadow:0 6px 18px rgba(32,34,58,.18);
+    padding:8px 16px; font-size:.8rem; color:var(--gea-ink); cursor:pointer; opacity:.85;
+  }
+  .admin-access:hover{ opacity:1; }
+
+  .modal-content{ border-radius:14px; }
+  .err-login{ display:none; }
+</style>
+</head>
+<body class="bg-p-silver">
+
+<!-- ===== NAVBAR oficial ===== -->
+<nav class="sigod_navbar navbar navbar-expand-lg sigod_r07h3k bg-p-silver">
+  <div class="container-lg">
+    <a class="navbar-brand" href="/">
+      <img src="/static/img/logo.svg" alt="Gobierno del Estado de Aguascalientes" style="height:42px;">
+    </a>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <span class="d-none d-md-inline" style="color:#555;font-size:.85rem;">Control Vehicular Digital</span>
+    </div>
+  </div>
+</nav>
+
+<div class="container-lg">
+
+  <!-- ===== HERO ===== -->
+  <div class="hero-cv">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <span class="badge-cv">🚗 Trámite Digital Oficial</span>
+        <h1>Control Vehicular y Permiso Digital</h1>
+        <p class="mb-0" style="opacity:.9;">Consulta, genera y valida tu permiso de circulación en línea — Aguascalientes.</p>
+      </div>
+      <div class="col-md-4 text-center d-none d-md-block">
+        <img src="/static/img/control_vehicular.svg" class="icon" alt="">
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CARD DE CONSULTA (función real del bot) ===== -->
+  <div class="card-consulta">
+    <h5 class="mb-3" style="color:var(--gea-ink); font-weight:700;">Consulta el estado de tu folio</h5>
+    <div class="row g-2">
+      <div class="col-md-9">
+        <input type="text" id="folioInput" placeholder="Ej. 6541234" autocomplete="off">
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn-gea" onclick="consultarFolio()">Consultar</button>
+      </div>
+    </div>
+    <div id="loadingFolio" style="display:none;" class="mt-3 text-muted">Buscando folio…</div>
+
+    <div id="resultado">
+      <hr>
+      <div id="resContent"></div>
+    </div>
+  </div>
+
+  <!-- ===== TRÁMITES RELACIONADOS ===== -->
+  <div class="row g-3 my-4">
+    <div class="col-6 col-md-3">
+      <div class="tramite-card">
+        <img src="/static/img/control_vehicular.svg" alt="">
+        <div style="font-weight:600;font-size:.9rem;">Permiso Vehicular</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="tramite-card">
+        <img src="/static/img/pago_multas.svg" alt="">
+        <div style="font-weight:600;font-size:.9rem;">Pago de Multas</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="tramite-card">
+        <img src="/static/img/pagos_en_linea.svg" alt="">
+        <div style="font-weight:600;font-size:.9rem;">Pagos en Línea</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="tramite-card">
+        <img src="/static/img/ventanilla.svg" alt="">
+        <div style="font-weight:600;font-size:.9rem;">Ventanilla Digital</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="gea-footer">
+  <div class="container-lg d-flex flex-wrap justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      <img src="/static/img/logo_blanco.png" alt="" style="height:30px;">
+      <span>Gobierno del Estado de Aguascalientes</span>
+    </div>
+    <div>© 2026 — Sistema Digital de Permisos AGS</div>
+  </div>
+</footer>
+
+<!-- ===== ACCESO ADMIN (discreto, abre modal) ===== -->
+<div class="admin-access" data-bs-toggle="modal" data-bs-target="#loginModal">
+  🔑 Acceso administrativo
+</div>
+
+<!-- ===== MODAL LOGIN ===== -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-weight:700;color:var(--gea-ink);">Panel Administrativo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Usuario</label>
+          <input type="text" id="loginUser" class="form-control" autocomplete="off">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Contraseña</label>
+          <input type="password" id="loginPass" class="form-control" autocomplete="off">
+        </div>
+        <div id="loginError" class="text-danger small err-login">Usuario o contraseña incorrectos.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-gea w-100" onclick="hacerLogin()">Entrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/bootstrap.min.js"></script>
+<script>
+async function consultarFolio(){
+  const folio = document.getElementById('folioInput').value.trim().toUpperCase();
+  if(!folio){ return; }
+  const loading = document.getElementById('loadingFolio');
+  const resultado = document.getElementById('resultado');
+  const resContent = document.getElementById('resContent');
+  loading.style.display = 'block';
+  resultado.style.display = 'none';
+  try{
+    const r = await fetch(`/api/consultar_folio/${encodeURIComponent(folio)}`);
+    const data = await r.json();
+    loading.style.display = 'none';
+    resultado.style.display = 'block';
+
+    if(!data.ok){
+      resContent.innerHTML = `
+        <div class="d-flex align-items-center gap-2">
+          <span class="estado-pill estado-no">No encontrado</span>
+          <span>${data.mensaje || 'El folio no existe en el sistema.'}</span>
+        </div>`;
+      return;
+    }
+
+    const pillClass = data.vigente ? 'estado-vigente' : 'estado-vencido';
+    resContent.innerHTML = `
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="estado-pill ${pillClass}">${data.estado_vigencia}</span>
+        <strong>Folio ${data.folio}</strong>
+      </div>
+      <div class="row">
+        <div class="col-md-6"><strong>Titular:</strong> ${data.nombre || '-'}</div>
+        <div class="col-md-6"><strong>Vehículo:</strong> ${data.marca || ''} ${data.linea || ''} ${data.anio || ''}</div>
+        <div class="col-md-6"><strong>Color:</strong> ${data.color || '-'}</div>
+        <div class="col-md-6"><strong>Serie:</strong> ${data.numero_serie || '-'}</div>
+        <div class="col-md-6"><strong>Expedición:</strong> ${data.fecha_expedicion || '-'}</div>
+        <div class="col-md-6"><strong>Vencimiento:</strong> ${data.fecha_vencimiento || '-'}</div>
+      </div>`;
+  }catch(e){
+    loading.style.display = 'none';
+    resultado.style.display = 'block';
+    resContent.innerHTML = `<div class="text-danger">Error al consultar el folio. Intenta de nuevo.</div>`;
+  }
+}
+
+document.getElementById('folioInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){ consultarFolio(); }
+});
+
+async function hacerLogin(){
+  const username = document.getElementById('loginUser').value;
+  const password = document.getElementById('loginPass').value;
+  const errBox = document.getElementById('loginError');
+  errBox.style.display = 'none';
+  try{
+    const r = await fetch('/panel/login_ajax', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const data = await r.json();
+    if(data.ok){
+      window.location.href = '/panel/admin';
+    } else {
+      errBox.textContent = data.error || 'Usuario o contraseña incorrectos.';
+      errBox.style.display = 'block';
+    }
+  }catch(e){
+    errBox.textContent = 'Error de conexión, intenta de nuevo.';
+    errBox.style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>

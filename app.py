@@ -1,12 +1,11 @@
 from fastapi import FastAPI, Request, HTTPException, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
-from pydantic import BaseModel
 import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -37,8 +36,17 @@ ENTIDAD          = "ags"
 PRECIO_PERMISO   = 180
 TZ               = os.getenv("TZ", "America/Mexico_City")
 
-ADMIN_USER = "Placa893909"
-ADMIN_PASS = "Placa893909"
+# FIX #3: credenciales y secret key ahora vienen de variables de entorno,
+# ya no están hardcodeadas en el código fuente.
+ADMIN_USER = os.getenv("ADMIN_USER", "")
+ADMIN_PASS = os.getenv("ADMIN_PASS", "")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+
+if not ADMIN_USER or not ADMIN_PASS:
+    print("[WARN] ADMIN_USER / ADMIN_PASS no configuradas en variables de entorno")
+if not SECRET_KEY:
+    print("[WARN] SECRET_KEY no configurada, usando una temporal (no recomendado en producción)")
+    SECRET_KEY = os.urandom(24).hex()
 
 TEMPLATES_DIR = "templates"
 STATIC_DIR    = "static"
@@ -679,19 +687,11 @@ async def lifespan(app: FastAPI):
     await bot.session.close()
 
 app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="7.3")
-
-# ⚠️ FIX LOGIN: same_site + https_only explícitos para que la cookie de sesión
-# persista bien detrás del proxy HTTPS de Render (antes la sesión se perdía
-# silenciosamente y por eso el login "solo refrescaba" la página).
-app.add_middleware(
-    SessionMiddleware,
-    secret_key="tu_clave_secreta_super_segura_123456",
-    same_site="lax",
-    https_only=True,
-)
+# FIX #3: secret_key ahora viene de variable de entorno SECRET_KEY
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# ===================== LOGIN (form clásico, se mantiene como respaldo) =====================
+# ===================== RUTAS WEB =====================
 
 @app.get("/panel/login", response_class=HTMLResponse)
 async def login_get(request: Request):
@@ -705,22 +705,6 @@ async def login_post(request: Request,
         request.session["username"] = username
         return RedirectResponse(url="/panel/admin", status_code=303)
     return RedirectResponse(url="/panel/login?error=1", status_code=303)
-
-# ⚠️ FIX LOGIN: endpoint AJAX usado por el modal de login del nuevo home.
-# Esto resuelve el bug de "solo se actualiza la página": ya no dependemos de
-# un <form> nativo + redirect — el JS recibe la respuesta directa y decide
-# qué hacer (redirigir a /panel/admin o mostrar el error real).
-class LoginPayload(BaseModel):
-    username: str
-    password: str
-
-@app.post("/panel/login_ajax")
-async def login_ajax(request: Request, payload: LoginPayload):
-    if payload.username == ADMIN_USER and payload.password == ADMIN_PASS:
-        request.session["admin"]    = True
-        request.session["username"] = payload.username
-        return JSONResponse({"ok": True})
-    return JSONResponse({"ok": False, "error": "Usuario o contraseña incorrectos."})
 
 @app.get("/panel/admin", response_class=HTMLResponse)
 async def panel_admin(request: Request):
@@ -905,19 +889,6 @@ async def estado_folio(folio: str, request: Request):
     except Exception as e:
         return HTMLResponse(f"<h1>Error</h1><p>{e}</p>", status_code=500)
 
-# ===================== RAÍZ ÚNICA (clon del portal + buscador de folios) =====================
-# ⚠️ FIX: antes había DOS @app.get("/") — FastAPI siempre toma la primera
-# registrada, así que la página real (consulta_ags.html) nunca se servía.
-# Ahora solo existe esta.
-
-@app.get("/", response_class=HTMLResponse)
-async def root_ags(request: Request):
-    return templates.TemplateResponse(request, "consulta_ags.html", {
-        "precio_permiso": PRECIO_PERMISO,
-        "timers_activos": len(timers_activos),
-        "siguiente_folio": f"{FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}",
-    })
-
 @app.get("/health")
 async def health_check():
     try:
@@ -938,7 +909,53 @@ async def health_check():
         return {"status": "error", "error": str(e),
                 "timestamp": datetime.now(ZoneInfo(TZ)).isoformat()}
 
-# ===================== API PÚBLICA CONSULTA AGS =====================
+# ===================== RUTAS PÚBLICAS CONSULTA AGS =====================
+# FIX #1: se eliminó la ruta "/" duplicada (la antigua página de status con
+# botón "Panel de Administración"). FastAPI usaba la primera definición y
+# por eso nunca llegabas a ver esta página de consulta pública.
+# Si quieres seguir teniendo esa pantalla de status, queda disponible en /status.
+
+@app.get("/status", response_class=HTMLResponse)
+async def status_page():
+    return HTMLResponse(f"""<!DOCTYPE html><html><head>
+<title>Sistema Permisos AGS</title><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{{font-family:Arial,sans-serif;margin:0;padding:40px;
+     background:linear-gradient(135deg,#1a237e,#283593);
+     min-height:100vh;display:flex;align-items:center;justify-content:center}}
+.c{{max-width:580px;width:100%;background:#fff;padding:40px;
+    border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}}
+h1{{color:#1a237e;font-size:26px}} h2{{color:#283593;font-size:20px;font-weight:normal}}
+.badge{{display:inline-block;background:#e8f5e8;color:#2d5730;border:2px solid #4caf50;
+        padding:6px 16px;border-radius:20px;font-size:13px;font-weight:bold;margin-bottom:25px}}
+.info{{background:#f5f5f5;padding:20px;border-radius:10px;margin:20px 0;text-align:left}}
+.btn{{display:inline-block;background:#1a237e;color:#fff;padding:14px 32px;
+      border-radius:8px;text-decoration:none;font-weight:bold;margin-top:20px}}
+</style></head><body><div class="c">
+<h1>🏛️ Sistema Digital de Permisos</h1>
+<h2>Estado de Aguascalientes</h2>
+<div class="badge">✅ Sistema Operativo</div>
+<div class="info"><ul style="padding-left:20px">
+<li><strong>Versión:</strong> 7.3 — /banamex</li>
+<li><strong>Costo:</strong> ${PRECIO_PERMISO} MXN</li>
+<li><strong>Tiempo límite:</strong> 36 horas</li>
+<li><strong>Timers activos:</strong> {len(timers_activos)}</li>
+<li><strong>Siguiente folio:</strong> {FOLIO_NUM_PREFIJO}{_folio_counter_ags['siguiente']}</li>
+</ul></div>
+<a href="/panel/login" class="btn">→ Panel de Administración</a>
+</div></body></html>""")
+
+@app.get("/", response_class=HTMLResponse)
+async def root_ags(request: Request):
+    """Página pública de consulta de folios - interfaz similar a epagos.aguascalientes.gob.mx/controlvehicular"""
+    try:
+        with open("consulta_ags.html", "r", encoding="utf-8") as f:
+            html = f.read()
+        return HTMLResponse(html)
+    except Exception as e:
+        print(f"[ERROR] Cargando HTML: {e}")
+        return RedirectResponse(url="/panel/login", status_code=303)
 
 @app.get("/api/consultar_folio/{folio}")
 async def api_consultar_folio(folio: str):
@@ -971,6 +988,8 @@ async def api_consultar_folio(folio: str):
             "vigente": vigente,
             "estado_vigencia": estado_vigencia,
             "folio": folio,
+            # FIX #2: el campo en la tabla es "contribuyente", no "nombre".
+            # Antes esto siempre regresaba vacío en la consulta pública.
             "nombre": registro.get("contribuyente", ""),
             "marca": registro.get("marca", ""),
             "linea": registro.get("linea", ""),

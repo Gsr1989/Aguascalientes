@@ -871,120 +871,122 @@ async def telegram_webhook(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Interfaz pública de consulta - HTML limpio"""
-    return HTMLResponse(f"""
-    <!DOCTYPE html><html><head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Consulta de Permisos - Aguascalientes</title>
-    <style>
-    *{{margin:0;padding:0;box-sizing:border-box}}
-    body{{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#f5f5f5,#e8e8e8);min-height:100vh;padding:20px}}
-    .container{{max-width:600px;margin:0 auto}}
-    .header{{background:white;padding:20px;border-bottom:4px solid #003da5;border-radius:10px 10px 0 0;text-align:center;margin-bottom:30px}}
-    .header img{{height:50px;margin-bottom:10px}}
-    .header h1{{color:#003da5;font-size:24px;font-weight:700;margin:10px 0}}
-    .header p{{color:#666;font-size:13px}}
-    .card{{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);margin-bottom:20px}}
-    .card h2{{color:#003da5;font-size:18px;font-weight:700;margin-bottom:15px;text-transform:uppercase}}
-    .form-group{{margin-bottom:15px}}
-    .form-group label{{display:block;font-weight:600;font-size:13px;color:#333;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}}
-    .form-group input{{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:6px;font-size:16px;transition:all 0.3s}}
-    .form-group input:focus{{outline:none;border-color:#003da5;box-shadow:0 0 0 3px rgba(0,61,165,0.1)}}
-    .btn{{width:100%;padding:14px;background:#003da5;color:white;border:none;border-radius:6px;font-weight:700;font-size:16px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all 0.3s;box-shadow:0 4px 12px rgba(0,61,165,0.2)}}
-    .btn:hover{{background:#002870;transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,61,165,0.3)}}
-    .btn:active{{transform:translateY(0)}}
-    .result{{margin-top:20px;padding:15px;border-radius:6px;display:none;text-align:center;font-weight:600}}
-    .result.success{{background:#e8f5e9;color:#1b5e20;border-left:5px solid #4caf50}}
-    .result.error{{background:#ffebee;color:#c62828;border-left:5px solid #f44336}}
-    .info-box{{background:#f9f9f9;border-left:4px solid #003da5;padding:15px;border-radius:4px;font-size:13px;color:#666;line-height:1.6;margin-top:20px}}
-    .info-box strong{{color:#003da5}}
-    .footer{{text-align:center;padding:20px;color:#666;font-size:12px}}
-    .links{{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}}
-    .links a{{padding:8px 14px;background:#f0f0f0;color:#003da5;text-decoration:none;border-radius:4px;font-size:13px;font-weight:600;transition:all 0.3s}}
-    .links a:hover{{background:#003da5;color:white}}
-    </style></head><body>
-    <div class="container">
-        <div class="header">
-            <h1>🔍 Consulta de Permisos</h1>
-            <p>Estado de Aguascalientes</p>
-        </div>
-        
-        <div class="card">
-            <h2>Buscar Folio</h2>
-            <form onsubmit="buscar(event)">
-                <div class="form-group">
-                    <label for="folio">Número de Folio</label>
-                    <input type="text" id="folio" placeholder="Ej: 654001234" required autofocus style="text-transform:uppercase">
-                </div>
-                <button type="submit" class="btn">🔍 Buscar</button>
-            </form>
-            <div class="result" id="resultado"></div>
-            
-            <div class="info-box">
-                <strong>⚠️ Información:</strong> Ingresa tu número de folio para consultar el estado de tu permiso vehicular digital.
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2>Panel Administrativo</h2>
-            <p style="color:#666;margin-bottom:15px;font-size:14px">Acceso para administradores del sistema</p>
-            <a href="/panel/login" style="display:inline-block;padding:12px 30px;background:#003da5;color:white;text-decoration:none;border-radius:6px;font-weight:700;transition:all 0.3s" onmouseover="this.style.background='#002870'" onmouseout="this.style.background='#003da5'">
-                🔐 Ir al Panel
-            </a>
-        </div>
-        
-        <div class="footer">
-            <p>© 2026 Gobierno del Estado de Aguascalientes | Sistema Digital de Permisos</p>
-            <p style="margin-top:10px">Teléfono: (449) 469-9898</p>
-        </div>
-    </div>
-    
-    <script>
-    async function buscar(e){{
-        e.preventDefault();
-        const folio = document.getElementById('folio').value.toUpperCase().trim();
-        const resultado = document.getElementById('resultado');
-        
-        if (!folio) {{
-            resultado.textContent = '❌ Ingresa un folio válido';
-            resultado.className = 'result error';
-            resultado.style.display = 'block';
-            return;
-        }}
-        
-        resultado.textContent = '⏳ Consultando...';
-        resultado.className = 'result';
-        resultado.style.display = 'block';
-        
-        try {{
-            const response = await fetch('/api/consultar_folio/' + folio);
-            const data = await response.json();
-            
-            if (data.ok) {{
-                resultado.innerHTML = `
-                    <div style="text-align:left">
-                        <strong style="font-size:16px">✅ Folio ${{data.folio}} - ${{data.estado_vigencia}}</strong><br><br>
-                        <div style="background:white;padding:12px;border-radius:4px;margin-top:10px;text-align:left;font-size:13px">
-                            <strong>Titular:</strong> ${{data.nombre}}<br>
-                            <strong>Vehículo:</strong> ${{data.marca}} ${{data.linea}} (${{data.anio}})<br>
-                            <strong>Expedición:</strong> ${{data.fecha_expedicion}}<br>
-                            <strong>Vencimiento:</strong> ${{data.fecha_vencimiento}}
+    """Jala TODO el HTML oficial de CMOV e inyecta login"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://www.aguascalientes.gob.mx/CMOV/", 
+                                 timeout=aiohttp.ClientTimeout(total=15),
+                                 ssl=False) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    print("[✅] HTML CMOV cargado exitosamente")
+                    
+                    # Inyectar el formulario de login ANTES de cerrar body
+                    login_form = """
+                    <style>
+                    #adminLoginModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999;font-family:'Segoe UI',Arial,sans-serif}
+                    #adminLoginModal.hidden{display:none}
+                    .loginBox{background:white;padding:50px 40px;border-radius:12px;width:95%;max-width:420px;box-shadow:0 15px 50px rgba(0,0,0,0.4)}
+                    .loginBox h2{color:#003da5;text-align:center;font-size:26px;margin:0 0 10px 0}
+                    .loginBox p{text-align:center;color:#666;font-size:13px;margin:0 0 30px 0}
+                    .formGroup{margin-bottom:18px}
+                    .formGroup label{display:block;font-weight:600;color:#333;font-size:12px;text-transform:uppercase;margin-bottom:7px;letter-spacing:0.5px}
+                    .formGroup input{width:100%;padding:13px;border:2px solid #ddd;border-radius:6px;font-size:15px;font-family:Arial;transition:all 0.3s}
+                    .formGroup input:focus{outline:none;border-color:#003da5;box-shadow:0 0 0 4px rgba(0,61,165,0.1)}
+                    .loginBtn{width:100%;padding:14px;background:#003da5;color:white;border:none;border-radius:6px;font-weight:700;font-size:15px;cursor:pointer;text-transform:uppercase;letter-spacing:0.8px;transition:all 0.3s;margin-top:10px;box-shadow:0 4px 15px rgba(0,61,165,0.25)}
+                    .loginBtn:hover{background:#002870;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,61,165,0.35)}
+                    .loginBtn:active{transform:translateY(0)}
+                    .loginFooter{text-align:center;font-size:11px;color:#999;margin-top:25px;border-top:1px solid #eee;padding-top:15px}
+                    .errorMsg{display:none;background:#ffebee;color:#c62828;padding:12px;border-radius:6px;margin-bottom:15px;font-size:13px;font-weight:600;text-align:center}
+                    .errorMsg.show{display:block}
+                    </style>
+                    <div id="adminLoginModal">
+                        <div class="loginBox">
+                            <h2>🔐 Panel Admin</h2>
+                            <p>Sistema Digital de Permisos Vehiculares</p>
+                            <div class="errorMsg" id="loginError"></div>
+                            <form id="loginForm" method="POST" action="/panel/login">
+                                <div class="formGroup">
+                                    <label>Usuario</label>
+                                    <input type="text" name="username" required autofocus placeholder="Ingresa tu usuario">
+                                </div>
+                                <div class="formGroup">
+                                    <label>Contraseña</label>
+                                    <input type="password" name="password" required placeholder="Ingresa tu contraseña">
+                                </div>
+                                <button type="submit" class="loginBtn">Entrar al Sistema</button>
+                            </form>
+                            <div class="loginFooter">
+                                <p>© 2026 Gobierno del Estado de Aguascalientes</p>
+                            </div>
                         </div>
                     </div>
-                `;
-                resultado.className = 'result success';
-            }} else {{
-                resultado.textContent = '❌ ' + data.mensaje;
-                resultado.className = 'result error';
-            }}
-            resultado.style.display = 'block';
-        }} catch (e) {{
-            resultado.textContent = '❌ Error de conexión: ' + e.message;
-            resultado.className = 'result error';
-            resultado.style.display = 'block';
-        }}
-    }}
-    </script>
+                    <script>
+                    if (window.location.search.includes('error=1')) {
+                        document.getElementById('loginError').textContent = '❌ Usuario o contraseña incorrectos';
+                        document.getElementById('loginError').classList.add('show');
+                    }
+                    </script>
+                    """
+                    
+                    # Inyectar antes de cerrar body
+                    if '</body>' in html:
+                        html = html.replace('</body>', login_form + '</body>')
+                    else:
+                        html = html + login_form
+                    
+                    return HTMLResponse(html)
+    except Exception as e:
+        print(f"[❌ ERROR] No se pudo jalar HTML CMOV: {e}")
+    
+    # Fallback si no se puede obtener el HTML oficial
+    return HTMLResponse("""
+    <!DOCTYPE html><html lang="es"><head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>CMOV - Aguascalientes</title>
+    <link rel="icon" href="https://www.aguascalientes.gob.mx/favicon.ico">
+    <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5f5}
+    .header{background:#003da5;color:white;padding:15px 20px;text-align:center}
+    .header h1{font-size:24px;margin:10px 0}
+    .container{max-width:1000px;margin:0 auto;padding:30px 20px}
+    .login-card{background:white;padding:40px;border-radius:15px;max-width:500px;margin:0 auto;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+    .login-card h2{color:#003da5;text-align:center;margin-bottom:30px;font-size:22px}
+    .form-group{margin-bottom:20px}
+    .form-group label{display:block;font-weight:600;margin-bottom:8px;color:#333;font-size:13px;text-transform:uppercase}
+    .form-group input{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px}
+    .form-group input:focus{outline:none;border-color:#003da5;box-shadow:0 0 0 3px rgba(0,61,165,0.1)}
+    .btn{width:100%;padding:13px;background:#003da5;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;text-transform:uppercase;margin-top:10px}
+    .btn:hover{background:#002870}
+    .footer{text-align:center;color:#666;font-size:12px;margin-top:30px}
+    </style>
+    </head><body>
+    <div class="header">
+        <h1>🏛️ CMOV Aguascalientes</h1>
+        <p>Centro de Movilidad Vehicular</p>
+    </div>
+    
+    <div class="container">
+        <div class="login-card">
+            <h2>Panel Administrativo</h2>
+            <form method="POST" action="/panel/login">
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <input type="text" name="username" required placeholder="Ingresa tu usuario">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" name="password" required placeholder="Ingresa tu contraseña">
+                </div>
+                <button type="submit" class="btn">🔐 Entrar</button>
+            </form>
+            <div class="footer">
+                <p>© 2026 Gobierno del Estado de Aguascalientes</p>
+                <p style="margin-top:5px">Sistema Digital de Permisos Vehiculares</p>
+            </div>
+        </div>
+    </div>
     </body></html>""")
 
 @app.get("/api/consultar_folio/{folio}")

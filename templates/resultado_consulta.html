@@ -1,291 +1,852 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Resultado de Consulta - Aguascalientes</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>
+        Resultado de Consulta - Portal de Contribuciones Vehiculares
+    </title>
+
+    <!-- ===================================================== -->
+    <!-- CSS OFICIAL DEL PORTAL DE AGUASCALIENTES             -->
+    <!-- ===================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="https://www.aguascalientes.gob.mx/controlvehicular/css/site.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://www.aguascalientes.gob.mx/controlvehicular/PortalVehicular.styles.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://www.aguascalientes.gob.mx/portalgea/css/tema-sae.css"
+        type="text/css"
+    >
+
+    <!-- ===================================================== -->
+    <!-- ESTILOS DEL RESULTADO                                 -->
+    <!-- ===================================================== -->
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body { 
-            font-family: Arial, sans-serif; 
+
+        /*
+        IMPORTANTE:
+        No usamos .container porque Bootstrap / Portal GEA
+        ya utiliza esa clase.
+        */
+
+        .resultado-page {
+            width: 100%;
             background: #f5f5f5;
-            padding: 20px 0;
+            padding: 45px 15px 70px 15px;
         }
-        
-        .container { 
-            width: 100%; 
-            max-width: 700px; 
-            margin: 0 auto; 
-            background: #fff;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            border-radius: 10px;
+
+        .resultado-card {
+            width: 100%;
+            max-width: 760px;
+            margin: 0 auto;
+
+            background: #ffffff;
+
+            border-radius: 12px;
+
             overflow: hidden;
+
+            box-shadow:
+                0 4px 20px
+                rgba(0, 0, 0, 0.10);
         }
-        
-        .header, .footer { 
-            width: 100%; 
-            text-align: center; 
+
+
+        /* ================================================= */
+        /* CABECERA DEL RESULTADO                            */
+        /* ================================================= */
+
+        .resultado-header {
+
+            background-color: #2D377A;
+
+            padding: 35px 25px;
+
+            text-align: center;
+
+            color: #ffffff;
         }
-        
-        .header img, .footer img { 
-            width: 100%; 
-            height: auto; 
-            display: block; 
+
+        .resultado-header h1 {
+
+            margin: 0 0 8px 0;
+
+            font-size: 27px;
+
+            font-weight: 700;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
         }
-        
+
+        .resultado-header p {
+
+            margin: 0;
+
+            font-size: 16px;
+
+            color: #ffffff;
+
+            opacity: 0.9;
+        }
+
+
+        /* ================================================= */
+        /* TÍTULO                                            */
+        /* ================================================= */
+
         .validacion-titulo {
+
             text-align: center;
-            font-size: 24px;
+
+            font-size: 22px;
+
             font-weight: bold;
-            color: #3B5998;
-            letter-spacing: 2px;
-            margin: 30px 0 20px 0;
+
+            color: #2D377A;
+
+            letter-spacing: 1px;
+
+            margin: 30px 0 8px 0;
+
             padding: 0 20px;
+
             text-transform: uppercase;
         }
-        
+
         .resultado-titulo {
+
             text-align: center;
-            font-size: 28px;
+
+            font-size: 25px;
+
             font-weight: bold;
-            color: #2c3e50;
-            margin: 25px 0 20px 0;
+
+            color: #333333;
+
+            margin: 0 0 25px 0;
+
             text-transform: uppercase;
         }
-        
+
+
+        /* ================================================= */
+        /* ESTADO DEL FOLIO                                  */
+        /* ================================================= */
+
         .folio-status {
+
             text-align: center;
+
             margin: 20px auto;
-            padding: 20px 30px;
-            border-radius: 10px;
+
+            padding: 18px 25px;
+
+            border-radius: 8px;
+
             font-size: 20px;
+
             font-weight: bold;
+
             text-transform: uppercase;
+
             max-width: 90%;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+
+            box-shadow:
+                0 3px 10px
+                rgba(0, 0, 0, 0.18);
+
 
             {% if no_encontrado %}
+
             background: #9e9e9e;
-            color: white;
+            color: #ffffff;
+
             {% elif vigente %}
-            background: #4caf50;
-            color: white;
+
+            background: #198754;
+            color: #ffffff;
+
             {% else %}
+
             background: #b8860b;
-            color: white;
+            color: #ffffff;
+
             {% endif %}
         }
-        
-        .content { 
-            padding: 20px 30px 40px 30px; 
-            text-align: center; 
+
+
+        /* ================================================= */
+        /* CONTENIDO                                         */
+        /* ================================================= */
+
+        .resultado-content {
+
+            padding:
+                10px 35px
+                40px 35px;
+
+            text-align: center;
         }
+
 
         .resultado-box {
-            background: #f0f0f0;
-            border-radius: 15px;
+
+            background: #f1f1f1;
+
+            border-radius: 12px;
+
             padding: 16px;
-            margin: 20px 0;
+
+            margin: 25px 0;
         }
+
 
         .datos-inner {
+
             background: #ffffff;
-            border-radius: 10px;
-            padding: 24px 20px;
+
+            border-radius: 8px;
+
+            padding: 20px 25px;
+
             text-align: left;
+
+            border:
+                1px solid
+                #dddddd;
         }
+
 
         .dato {
-            margin: 14px 0;
+
+            padding: 14px 0;
+
+            border-bottom:
+                1px solid
+                #eeeeee;
         }
+
+
+        .dato:last-child {
+
+            border-bottom: none;
+        }
+
 
         .dato-label {
+
             display: block;
+
             font-size: 12px;
+
             font-weight: bold;
-            color: #333;
+
+            color: #555555;
+
             text-transform: uppercase;
+
             letter-spacing: 0.5px;
-            margin-bottom: 2px;
+
+            margin-bottom: 4px;
         }
+
 
         .dato-value {
+
             display: block;
-            font-size: 15px;
-            color: #222;
+
+            font-size: 16px;
+
+            color: #222222;
+
             font-weight: normal;
+
+            overflow-wrap: anywhere;
         }
+
+
+        /* ================================================= */
+        /* NO ENCONTRADO                                     */
+        /* ================================================= */
 
         .mensaje-no-encontrado {
+
             text-align: center;
-            font-size: 18px;
-            color: #666;
-            padding: 20px;
+
+            padding: 30px 15px;
+
+            color: #555555;
         }
+
+
+        .mensaje-no-encontrado h3 {
+
+            margin-bottom: 15px;
+
+            color: #333333;
+
+            font-weight: 700;
+        }
+
+
+        /* ================================================= */
+        /* AVISO                                             */
+        /* ================================================= */
 
         .info-adicional {
+
             text-align: center;
-            color: #444;
+
+            color: #555555;
+
             font-size: 13px;
+
             font-weight: bold;
-            letter-spacing: 1px;
+
+            letter-spacing: 0.5px;
+
             text-transform: uppercase;
-            margin: 20px 0 10px 0;
+
+            margin: 25px 0;
         }
+
+
+        /* ================================================= */
+        /* BOTÓN                                             */
+        /* ================================================= */
 
         .boton-salir {
-            margin-top: 20px;
+
+            margin-top: 30px;
         }
+
 
         .boton-salir a {
+
             display: inline-block;
-            background: #3B5998;
-            color: #fff; 
-            padding: 15px 60px; 
-            text-decoration: none;
-            border-radius: 8px; 
-            font-size: 16px; 
+
+            background: #2D377A;
+
+            color: #ffffff !important;
+
+            padding: 13px 45px;
+
+            text-decoration: none !important;
+
+            border-radius: 6px;
+
+            font-size: 16px;
+
             font-weight: bold;
-            transition: background 0.3s;
+
+            transition:
+                background-color
+                0.2s ease;
         }
+
 
         .boton-salir a:hover {
-            background: #6b0000;
+
+            background: #1d255b;
+
+            color: #ffffff !important;
         }
+
+
+        /* ================================================= */
+        /* RESPONSIVE                                        */
+        /* ================================================= */
 
         @media (max-width: 768px) {
-            .container {
-                margin: 0;
-                border-radius: 0;
+
+            .resultado-page {
+
+                padding:
+                    25px 10px
+                    45px 10px;
             }
-            .validacion-titulo { font-size: 20px; }
-            .resultado-titulo  { font-size: 22px; }
-            .folio-status { font-size: 18px; padding: 15px 20px; }
-            .content { padding: 15px 20px 30px 20px; }
-            .dato-value { font-size: 14px; }
+
+
+            .resultado-card {
+
+                border-radius: 8px;
+            }
+
+
+            .resultado-header {
+
+                padding:
+                    25px 15px;
+            }
+
+
+            .resultado-header h1 {
+
+                font-size: 22px;
+            }
+
+
+            .validacion-titulo {
+
+                font-size: 18px;
+            }
+
+
+            .resultado-titulo {
+
+                font-size: 21px;
+            }
+
+
+            .folio-status {
+
+                font-size: 17px;
+
+                padding:
+                    15px 15px;
+            }
+
+
+            .resultado-content {
+
+                padding:
+                    10px 15px
+                    30px 15px;
+            }
+
+
+            .datos-inner {
+
+                padding:
+                    15px 18px;
+            }
+
+
+            .dato-value {
+
+                font-size: 15px;
+            }
+
+
+            .boton-salir a {
+
+                width: 100%;
+
+                max-width: 300px;
+            }
         }
+
     </style>
+
 </head>
-<body>
-    <div class="container">
 
-        <div class="header">
-            {% if not no_encontrado %}
-            <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" onerror="this.style.display='none'">
-            {% endif %}
-        </div>
 
-        <div class="validacion-titulo">
-            VALIDACIÓN DE PERMISOS DIGITALES
-        </div>
+<body
+    data-sigla=""
+    data-css="N"
+    data-vue="N"
+    data-jquery="N"
+>
 
-        <div class="resultado-titulo">
-            AGUASCALIENTES
-        </div>
 
-        <div class="folio-status">
-            {% if no_encontrado %}
-                FOLIO {{ folio }} : NO ENCONTRADO
-            {% elif vigente %}
-                FOLIO {{ folio }} : VIGENTE
-            {% else %}
-                FOLIO {{ folio }} : VENCIDO
-            {% endif %}
-        </div>
+<!-- ========================================================= -->
+<!-- HEADER GOBIERNO DEL ESTADO                                -->
+<!-- ========================================================= -->
 
-        <div class="content">
+<div id="hgea"></div>
 
-            {% if not no_encontrado %}
+<!-- Espacio utilizado por el header dinámico oficial -->
 
-            <div class="resultado-box">
-                <div class="datos-inner">
+<div style="height:130px;"></div>
 
-                    <div class="dato">
-                        <span class="dato-label">Fecha de Expedición</span>
-                        <span class="dato-value">{{ expedicion }}</span>
+
+
+<!-- ========================================================= -->
+<!-- CONTENIDO                                                 -->
+<!-- ========================================================= -->
+
+<main role="main">
+
+
+    <section class="resultado-page">
+
+
+        <div class="resultado-card">
+
+
+            <!-- ============================================= -->
+            <!-- CABECERA                                      -->
+            <!-- ============================================= -->
+
+
+            <div class="resultado-header">
+
+                <h1>
+                    Portal de Contribuciones Vehiculares
+                </h1>
+
+                <p>
+                    Gobierno del Estado de Aguascalientes
+                </p>
+
+            </div>
+
+
+
+            <div class="validacion-titulo">
+
+                Validación de Permisos Digitales
+
+            </div>
+
+
+            <div class="resultado-titulo">
+
+                Aguascalientes
+
+            </div>
+
+
+
+            <!-- ============================================= -->
+            <!-- ESTADO                                        -->
+            <!-- ============================================= -->
+
+
+            <div class="folio-status">
+
+
+                {% if no_encontrado %}
+
+                    FOLIO {{ folio }} :
+                    NO ENCONTRADO
+
+
+                {% elif vigente %}
+
+                    FOLIO {{ folio }} :
+                    VIGENTE
+
+
+                {% else %}
+
+                    FOLIO {{ folio }} :
+                    VENCIDO
+
+
+                {% endif %}
+
+
+            </div>
+
+
+
+            <!-- ============================================= -->
+            <!-- CONTENIDO                                      -->
+            <!-- ============================================= -->
+
+
+            <div class="resultado-content">
+
+
+                {% if not no_encontrado %}
+
+
+                <div class="resultado-box">
+
+
+                    <div class="datos-inner">
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Fecha de Expedición
+                            </span>
+
+                            <span class="dato-value">
+                                {{ expedicion }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Fecha de Vencimiento
+                            </span>
+
+                            <span class="dato-value">
+                                {{ vencimiento }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Marca
+                            </span>
+
+                            <span class="dato-value">
+                                {{ marca }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Línea
+                            </span>
+
+                            <span class="dato-value">
+                                {{ linea }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Año
+                            </span>
+
+                            <span class="dato-value">
+                                {{ anio }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Número de Serie
+                            </span>
+
+                            <span class="dato-value">
+                                {{ serie }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Número de Motor
+                            </span>
+
+                            <span class="dato-value">
+                                {{ motor }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Color
+                            </span>
+
+                            <span class="dato-value">
+                                {{ color }}
+                            </span>
+
+                        </div>
+
+
+
+                        <div class="dato">
+
+                            <span class="dato-label">
+                                Titular
+                            </span>
+
+                            <span class="dato-value">
+                                {{ nombre }}
+                            </span>
+
+                        </div>
+
+
                     </div>
 
-                    <div class="dato">
-                        <span class="dato-label">Fecha de Vencimiento</span>
-                        <span class="dato-value">{{ vencimiento }}</span>
-                    </div>
-
-                    <div class="dato">
-                        <span class="dato-label">Marca</span>
-                        <span class="dato-value">{{ marca }}</span>
-                    </div>
-
-                    <div class="dato">
-                        <span class="dato-label">Línea</span>
-                        <span class="dato-value">{{ linea }}</span>
-                    </div>
-
-                    <div class="dato">
-                        <span class="dato-label">Año</span>
-                        <span class="dato-value">{{ anio }}</span>
-                    </div>
-
-                    <div class="dato">
-                        <span class="dato-label">Número de Serie</span>
-                        <span class="dato-value">{{ serie }}</span>
-                    </div>
-
-                    <div class="dato">
-                        <span class="dato-label">Número de Motor</span>
-                        <span class="dato-value">{{ motor }}</span>
-                    </div>
-
-                    <div class="dato">
-                        <span class="dato-label">Color</span>
-                        <span class="dato-value">{{ color }}</span>
-                    </div>
-
-                    <div class="dato">
-                        <span class="dato-label">Titular</span>
-                        <span class="dato-value">{{ nombre }}</span>
-                    </div>
 
                 </div>
-            </div>
 
-            <div class="info-adicional">
-               ⚠️ Este permiso fue generado por el Sistema Digital de Permisos de Aguascalientes
-            </div>
 
-            {% else %}
 
-            <div class="resultado-box">
-                <div class="datos-inner">
-                    <div class="mensaje-no-encontrado">
-                        <h3>No se encontró el folio en el sistema</h3>
-                        <p style="margin-top: 15px; color: #666;">
-                            El folio <strong>{{ folio }}</strong> no está registrado.
-                        </p>
-                        <p style="margin-top: 10px; color: #999; font-size: 14px;">
-                            Verifica que el número de folio sea correcto.
-                        </p>
-                    </div>
+                <div class="info-adicional">
+
+                    ⚠️ Este permiso fue generado por el
+                    Sistema Digital de Permisos de Aguascalientes
+
                 </div>
+
+
+
+                {% else %}
+
+
+                <div class="resultado-box">
+
+
+                    <div class="datos-inner">
+
+
+                        <div class="mensaje-no-encontrado">
+
+
+                            <h3>
+
+                                No se encontró el folio
+                                en el sistema
+
+                            </h3>
+
+
+                            <p>
+
+                                El folio
+
+                                <strong>
+                                    {{ folio }}
+                                </strong>
+
+                                no está registrado.
+
+                            </p>
+
+
+                            <p
+                                style="
+                                    margin-top:10px;
+                                    color:#888;
+                                    font-size:14px;
+                                "
+                            >
+
+                                Verifica que el número
+                                de folio sea correcto.
+
+                            </p>
+
+
+                        </div>
+
+
+                    </div>
+
+
+                </div>
+
+
+                {% endif %}
+
+
+
+                <!-- ========================================= -->
+                <!-- SALIR                                     -->
+                <!-- ========================================= -->
+
+
+                <div class="boton-salir">
+
+
+                    <a
+                        href="https://www.aguascalientes.gob.mx/cmov/"
+                    >
+
+                        Salir
+
+                    </a>
+
+
+                </div>
+
+
             </div>
 
-            {% endif %}
 
-            <div class="boton-salir">
-                <a href="https://www.aguascalientes.gob.mx/cmov/">Salir</a>
-            </div>
         </div>
 
-        <div class="footer">
-            {% if not no_encontrado %}
-            <img src="/static/pie.jpg" alt="Pie Aguascalientes" onerror="this.style.display='none'">
-            {% endif %}
-        </div>
 
-    </div>
+    </section>
+
+
+</main>
+
+
+
+<!-- ========================================================= -->
+<!-- FOOTER GOBIERNO DEL ESTADO                                -->
+<!-- ========================================================= -->
+
+
+<div style="height:130px;"></div>
+
+<div id="fgea"></div>
+
+
+
+<!-- ========================================================= -->
+<!-- JS OFICIAL DEL PORTAL                                     -->
+<!-- ========================================================= -->
+
+
+<script
+    src="https://www.aguascalientes.gob.mx/controlvehicular/js/site.js"
+></script>
+
+
+<script
+    src="https://eservicios2.aguascalientes.gob.mx/portalgea/js/geavue.js"
+></script>
+
+
+<div
+    id="agentegea"
+    data-axios="s"
+    data-agente="controlvehicular"
+    data-ia="sefi-controlvehicular-produccion"
+></div>
+
+
+<script
+    src="https://www.aguascalientes.gob.mx/portalgea/js/geagnsk.js"
+></script>
+
+
 </body>
+
 </html>

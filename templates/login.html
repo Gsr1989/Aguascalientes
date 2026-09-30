@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
 
     <title>
-        Panel Administrativo - Aguascalientes
+        Acceso Administrativo - Aguascalientes
     </title>
 
     <meta
@@ -28,7 +28,7 @@
 
         .container {
             width: 100%;
-            max-width: 900px;
+            max-width: 600px;
             margin: 0 auto;
             background: #fff;
             min-height: 100vh;
@@ -47,169 +47,143 @@
             display: block;
         }
 
-        .titulo-principal {
+        .validacion-titulo {
             text-align: center;
-            color: #3B5998;
-            font-size: 26px;
+            font-size: 22px;
             font-weight: bold;
+            color: #3B5998;
             letter-spacing: 1px;
-            padding: 25px 15px 5px;
+            margin: 20px 0 5px;
+            padding: 15px 15px 5px;
             text-transform: uppercase;
         }
 
-        .subtitulo {
+        .resultado-titulo {
             text-align: center;
-            color: #666;
-            font-size: 15px;
-            margin-bottom: 25px;
-            padding: 0 15px;
+            font-size: 27px;
+            font-weight: bold;
+            color: #3B5998;
+            margin: 5px 0 20px;
+            padding: 10px;
+            text-transform: uppercase;
         }
 
         .content {
             padding: 20px;
         }
 
-        .bienvenida {
-            background: #edf3ff;
-            border-left: 5px solid #3B5998;
-            padding: 18px;
-            border-radius: 8px;
+        .login-box {
+            background: #fff;
+            border: 2px solid #e3e7ee;
+            padding: 30px;
+            border-radius: 14px;
+            margin: 20px 0 30px;
+            box-shadow: 0 5px 18px rgba(0,0,0,.08);
+        }
+
+        .login-info {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
             margin-bottom: 25px;
         }
 
-        .bienvenida h2 {
-            margin: 0 0 8px 0;
-            color: #3B5998;
-            font-size: 20px;
-        }
-
-        .bienvenida p {
-            margin: 0;
-            color: #555;
-            font-size: 14px;
-        }
-
-        .estadisticas {
-            display: grid;
-            grid-template-columns:
-                repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: #fff;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 22px;
+        .error-msg {
+            background: #fff0f0;
+            border: 2px solid #e53935;
+            color: #a11c1c;
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin: 0 0 20px;
+            font-size: 15px;
+            font-weight: bold;
             text-align: center;
-            box-shadow:
-                0 3px 10px
-                rgba(0,0,0,.06);
         }
 
-        .stat-numero {
+        .form-group {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        label {
             display: block;
-            font-size: 32px;
             font-weight: bold;
-            color: #3B5998;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 15px;
         }
 
-        .stat-texto {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .menu-titulo {
-            color: #3B5998;
-            font-size: 19px;
-            font-weight: bold;
-            margin: 20px 0 15px;
-        }
-
-        .menu {
-            display: grid;
-            grid-template-columns:
-                repeat(2, 1fr);
-            gap: 15px;
-        }
-
-        .menu-card {
-            display: block;
-            text-decoration: none;
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #d8dde6;
+            border-radius: 9px;
+            font-size: 16px;
             background: #fff;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 24px 18px;
-            color: #222;
-            transition: .2s;
-            box-shadow:
-                0 3px 10px
-                rgba(0,0,0,.05);
         }
 
-        .menu-card:hover {
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
             border-color: #3B5998;
-            transform: translateY(-2px);
+            box-shadow: 0 0 0 3px rgba(59,89,152,.12);
         }
 
-        .menu-icon {
-            font-size: 30px;
-            margin-bottom: 10px;
-            display: block;
-        }
-
-        .menu-card strong {
-            display: block;
-            color: #3B5998;
-            font-size: 17px;
-            margin-bottom: 6px;
-        }
-
-        .menu-card span {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.4;
-        }
-
-        .logout-area {
-            margin: 30px 0 15px;
-            text-align: center;
-        }
-
-        .logout {
-            display: inline-block;
-            background: #b3261e;
+        .btn-login {
+            background: #3B5998;
             color: #fff;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 9px;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 12px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        .btn-login:hover {
+            background: #2d4373;
+        }
+
+        .volver {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .volver a {
+            color: #3B5998;
             text-decoration: none;
-            padding: 13px 28px;
-            border-radius: 8px;
+            font-size: 14px;
             font-weight: bold;
         }
 
-        .logout:hover {
-            background: #8e1e18;
+        .volver a:hover {
+            text-decoration: underline;
         }
 
-        @media (max-width: 650px) {
+        @media (max-width: 600px) {
 
             .content {
                 padding: 15px;
             }
 
-            .estadisticas,
-            .menu {
-                grid-template-columns: 1fr;
+            .login-box {
+                padding: 22px;
             }
 
-            .titulo-principal {
-                font-size: 21px;
+            .validacion-titulo {
+                font-size: 18px;
+                padding-top: 12px;
             }
 
-            .stat-numero {
-                font-size: 28px;
+            .resultado-titulo {
+                font-size: 23px;
             }
+
         }
 
     </style>
@@ -221,176 +195,105 @@
 
     <!-- ENCABEZADO -->
     <div class="header">
+
         <img
             src="/static/encabezado.jpg"
             alt="Encabezado Aguascalientes"
         >
+
     </div>
 
 
-    <!-- TÍTULO -->
-    <div class="titulo-principal">
-        Panel de Administración
+    <!-- TÍTULOS -->
+    <div class="validacion-titulo">
+        Sistema de Permisos Digitales
     </div>
 
-    <div class="subtitulo">
-        Sistema Digital de Permisos
-        — Aguascalientes
+    <div class="resultado-titulo">
+        Acceso Administrativo
     </div>
 
 
     <div class="content">
 
-        <!-- BIENVENIDA -->
-        <div class="bienvenida">
+        <!-- ERROR -->
+        {% if request.query_params.get('error') %}
 
-            <h2>
-                Administración del sistema
-            </h2>
-
-            <p>
-                Desde este panel puedes consultar,
-                registrar, editar y administrar
-                los folios del sistema.
-            </p>
-
+        <div class="error-msg">
+            ❌ Usuario o contraseña incorrectos.
         </div>
 
+        {% endif %}
 
-        <!-- ESTADÍSTICAS -->
-        <div class="estadisticas">
 
-            <div class="stat-card">
+        <!-- LOGIN -->
+        <div class="login-box">
 
-                <span class="stat-numero">
-                    {{ timers_activos }}
-                </span>
-
-                <span class="stat-texto">
-                    Timers activos
-                </span>
-
+            <div class="login-info">
+                Ingresa tus credenciales para acceder
+                al panel de administración.
             </div>
 
 
-            <div class="stat-card">
+            <form
+                method="POST"
+                action="/panel/login"
+            >
 
-                <span class="stat-numero">
-                    {{ usuarios_con_folios }}
-                </span>
+                <div class="form-group">
 
-                <span class="stat-texto">
-                    Usuarios con folios activos
-                </span>
+                    <label for="username">
+                        Usuario
+                    </label>
+
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        required
+                        autofocus
+                        autocomplete="username"
+                        placeholder="Ingrese su usuario"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="password">
+                        Contraseña
+                    </label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        autocomplete="current-password"
+                        placeholder="Ingrese su contraseña"
+                    >
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="btn-login"
+                >
+                    INICIAR SESIÓN
+                </button>
+
+            </form>
+
+
+            <div class="volver">
+
+                <a href="/">
+                    ← Volver a consulta pública
+                </a>
 
             </div>
-
-        </div>
-
-
-        <div class="menu-titulo">
-            Herramientas administrativas
-        </div>
-
-
-        <!-- MENÚ -->
-        <div class="menu">
-
-            <a
-                href="/panel/admin_folios"
-                class="menu-card"
-            >
-
-                <span class="menu-icon">
-                    📋
-                </span>
-
-                <strong>
-                    Folios registrados
-                </strong>
-
-                <span>
-                    Consulta, edita o elimina
-                    los permisos registrados.
-                </span>
-
-            </a>
-
-
-            <a
-                href="/panel/registro_admin"
-                class="menu-card"
-            >
-
-                <span class="menu-icon">
-                    ➕
-                </span>
-
-                <strong>
-                    Nuevo permiso
-                </strong>
-
-                <span>
-                    Registra manualmente
-                    un permiso desde administración.
-                </span>
-
-            </a>
-
-
-            <a
-                href="/panel/admin_tablas"
-                class="menu-card"
-            >
-
-                <span class="menu-icon">
-                    🗄️
-                </span>
-
-                <strong>
-                    Tablas del sistema
-                </strong>
-
-                <span>
-                    Consulta los registros
-                    almacenados en la base de datos.
-                </span>
-
-            </a>
-
-
-            <a
-                href="/"
-                class="menu-card"
-            >
-
-                <span class="menu-icon">
-                    🔎
-                </span>
-
-                <strong>
-                    Consulta pública
-                </strong>
-
-                <span>
-                    Abrir la página pública
-                    de consulta de folios.
-                </span>
-
-            </a>
-
-        </div>
-
-
-        <!-- CERRAR SESIÓN -->
-        <div class="logout-area">
-
-            <a
-                href="/panel/logout"
-                class="logout"
-            >
-                Cerrar sesión
-            </a>
 
         </div>
 

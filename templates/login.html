@@ -2,166 +2,412 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel Administrativo - Aguascalientes</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>
+        Panel Administrativo - Aguascalientes
+    </title>
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
     <style>
-        body { margin:0; padding:0; font-family: Arial, sans-serif; background:#fff; }
-        .container { width:100%; max-width:600px; margin:0 auto; background:#fff; }
-        .header, .footer { width:100%; text-align:center; }
-        .header img, .footer img { width:100%; height:auto; display:block; }
-        
-        .validacion-titulo {
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: #3B5998;
-            letter-spacing: 2px;
-            margin: 20px 0;
-            padding: 15px;
-            text-transform: uppercase;
-            font-family: 'Arial', sans-serif;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+
+        * {
+            box-sizing: border-box;
         }
-        
-        .resultado-titulo {
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f6f8;
+            color: #222;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            min-height: 100vh;
+        }
+
+        .header,
+        .footer {
+            width: 100%;
             text-align: center;
+        }
+
+        .header img,
+        .footer img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .titulo-principal {
+            text-align: center;
+            color: #3B5998;
             font-size: 26px;
             font-weight: bold;
-            color: #3B5998;
             letter-spacing: 1px;
-            margin: 25px 0 20px 0;
-            padding: 10px;
+            padding: 25px 15px 5px;
             text-transform: uppercase;
-            font-family: 'Arial', sans-serif;
         }
-        
-        .content { padding:20px; text-align:center; }
-        
-        .login-box {
-            background:#e8f5e8; 
-            border:3px solid #3B5998; 
-            color:#2d5730;
-            padding:30px; 
-            border-radius:15px; 
-            margin:20px 0; 
-            font-size:16px; 
-            line-height:1.8;
+
+        .subtitulo {
+            text-align: center;
+            color: #666;
+            font-size: 15px;
+            margin-bottom: 25px;
+            padding: 0 15px;
         }
-        
-        .error-msg {
-            background:#ffeaea; 
-            border:3px solid #f44336; 
-            color:#8b2635;
-            padding:15px; 
-            border-radius:10px; 
-            margin:20px 0; 
-            font-size:16px; 
-            font-weight:bold;
-            text-align:center;
+
+        .content {
+            padding: 20px;
         }
-        
-        .form-group { 
-            margin:20px 0; 
-            text-align:left; 
+
+        .bienvenida {
+            background: #edf3ff;
+            border-left: 5px solid #3B5998;
+            padding: 18px;
+            border-radius: 8px;
+            margin-bottom: 25px;
         }
-        
-        label {
-            display:block;
-            font-weight:bold;
-            margin-bottom:8px;
-            color:#2d5730;
-            font-size:16px;
+
+        .bienvenida h2 {
+            margin: 0 0 8px 0;
+            color: #3B5998;
+            font-size: 20px;
         }
-        
-        input[type="text"],
-        input[type="password"] {
-            width:100%;
-            padding:12px;
-            border:2px solid #4caf50;
-            border-radius:8px;
-            font-size:16px;
-            box-sizing:border-box;
+
+        .bienvenida p {
+            margin: 0;
+            color: #555;
+            font-size: 14px;
         }
-        
-        input:focus {
-            outline:none;
-            border-color:#3B5998;
+
+        .estadisticas {
+            display: grid;
+            grid-template-columns:
+                repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
         }
-        
-        .btn-login {
-            background:#3B5998; 
-            color:#fff; 
-            padding:15px 30px; 
-            text-decoration:none;
-            border:none;
-            border-radius:8px; 
-            font-size:16px; 
-            font-weight:bold; 
-            display:inline-block; 
-            transition:background .3s;
-            cursor:pointer;
-            width:100%;
-            margin-top:20px;
+
+        .stat-card {
+            background: #fff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+            box-shadow:
+                0 3px 10px
+                rgba(0,0,0,.06);
         }
-        
-        .btn-login:hover { 
-            background:#2d4373; 
+
+        .stat-numero {
+            display: block;
+            font-size: 32px;
+            font-weight: bold;
+            color: #3B5998;
+            margin-bottom: 6px;
         }
-        
-        @media (max-width:600px){
-            .content{ padding:15px; }
-            .login-box{ padding:20px; font-size:14px; }
-            .validacion-titulo { font-size: 20px; letter-spacing: 1px; margin: 15px 0; padding: 10px; }
-            .resultado-titulo { font-size: 22px; margin: 20px 0 15px 0; }
+
+        .stat-texto {
+            color: #666;
+            font-size: 14px;
         }
+
+        .menu-titulo {
+            color: #3B5998;
+            font-size: 19px;
+            font-weight: bold;
+            margin: 20px 0 15px;
+        }
+
+        .menu {
+            display: grid;
+            grid-template-columns:
+                repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .menu-card {
+            display: block;
+            text-decoration: none;
+            background: #fff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 24px 18px;
+            color: #222;
+            transition: .2s;
+            box-shadow:
+                0 3px 10px
+                rgba(0,0,0,.05);
+        }
+
+        .menu-card:hover {
+            border-color: #3B5998;
+            transform: translateY(-2px);
+        }
+
+        .menu-icon {
+            font-size: 30px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .menu-card strong {
+            display: block;
+            color: #3B5998;
+            font-size: 17px;
+            margin-bottom: 6px;
+        }
+
+        .menu-card span {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .logout-area {
+            margin: 30px 0 15px;
+            text-align: center;
+        }
+
+        .logout {
+            display: inline-block;
+            background: #b3261e;
+            color: #fff;
+            text-decoration: none;
+            padding: 13px 28px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .logout:hover {
+            background: #8e1e18;
+        }
+
+        @media (max-width: 650px) {
+
+            .content {
+                padding: 15px;
+            }
+
+            .estadisticas,
+            .menu {
+                grid-template-columns: 1fr;
+            }
+
+            .titulo-principal {
+                font-size: 21px;
+            }
+
+            .stat-numero {
+                font-size: 28px;
+            }
+        }
+
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <!-- Encabezado -->
-        <div class="header">
-            <img src="/static/encabezado.jpg" alt="Encabezado Aguascalientes" loading="lazy">
-        </div>
 
-        <!-- Leyenda -->
-        <div class="validacion-titulo">
-            SISTEMA DE PERMISOS DIGITALES
-        </div>
-        
-        <!-- Título -->
-        <div class="resultado-titulo">
-            PANEL DE ADMINISTRACIÓN
-        </div>
+<div class="container">
 
-        <!-- Contenido -->
-        <div class="content">
-            {% if request.query_params.get('error') %}
-            <div class="error-msg">
-                ❌ Usuario o contraseña incorrectos
-            </div>
-            {% endif %}
-            
-            <div class="login-box">
-                <form method="POST" action="/panel/login">
-                    <div class="form-group">
-                        <label>👤 Usuario</label>
-                        <input type="text" name="username" required autofocus placeholder="Ingrese su usuario">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>🔒 Contraseña</label>
-                        <input type="password" name="password" required placeholder="Ingrese su contraseña">
-                    </div>
-                    
-                    <button type="submit" class="btn-login">INICIAR SESIÓN</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Pie de página -->
-        <div class="footer">
-            <img src="/static/pie.jpg" alt="Pie Aguascalientes" loading="lazy">
-        </div>
+    <!-- ENCABEZADO -->
+    <div class="header">
+        <img
+            src="/static/encabezado.jpg"
+            alt="Encabezado Aguascalientes"
+        >
     </div>
+
+
+    <!-- TÍTULO -->
+    <div class="titulo-principal">
+        Panel de Administración
+    </div>
+
+    <div class="subtitulo">
+        Sistema Digital de Permisos
+        — Aguascalientes
+    </div>
+
+
+    <div class="content">
+
+        <!-- BIENVENIDA -->
+        <div class="bienvenida">
+
+            <h2>
+                Administración del sistema
+            </h2>
+
+            <p>
+                Desde este panel puedes consultar,
+                registrar, editar y administrar
+                los folios del sistema.
+            </p>
+
+        </div>
+
+
+        <!-- ESTADÍSTICAS -->
+        <div class="estadisticas">
+
+            <div class="stat-card">
+
+                <span class="stat-numero">
+                    {{ timers_activos }}
+                </span>
+
+                <span class="stat-texto">
+                    Timers activos
+                </span>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <span class="stat-numero">
+                    {{ usuarios_con_folios }}
+                </span>
+
+                <span class="stat-texto">
+                    Usuarios con folios activos
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="menu-titulo">
+            Herramientas administrativas
+        </div>
+
+
+        <!-- MENÚ -->
+        <div class="menu">
+
+            <a
+                href="/panel/admin_folios"
+                class="menu-card"
+            >
+
+                <span class="menu-icon">
+                    📋
+                </span>
+
+                <strong>
+                    Folios registrados
+                </strong>
+
+                <span>
+                    Consulta, edita o elimina
+                    los permisos registrados.
+                </span>
+
+            </a>
+
+
+            <a
+                href="/panel/registro_admin"
+                class="menu-card"
+            >
+
+                <span class="menu-icon">
+                    ➕
+                </span>
+
+                <strong>
+                    Nuevo permiso
+                </strong>
+
+                <span>
+                    Registra manualmente
+                    un permiso desde administración.
+                </span>
+
+            </a>
+
+
+            <a
+                href="/panel/admin_tablas"
+                class="menu-card"
+            >
+
+                <span class="menu-icon">
+                    🗄️
+                </span>
+
+                <strong>
+                    Tablas del sistema
+                </strong>
+
+                <span>
+                    Consulta los registros
+                    almacenados en la base de datos.
+                </span>
+
+            </a>
+
+
+            <a
+                href="/"
+                class="menu-card"
+            >
+
+                <span class="menu-icon">
+                    🔎
+                </span>
+
+                <strong>
+                    Consulta pública
+                </strong>
+
+                <span>
+                    Abrir la página pública
+                    de consulta de folios.
+                </span>
+
+            </a>
+
+        </div>
+
+
+        <!-- CERRAR SESIÓN -->
+        <div class="logout-area">
+
+            <a
+                href="/panel/logout"
+                class="logout"
+            >
+                Cerrar sesión
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <!-- PIE -->
+    <div class="footer">
+
+        <img
+            src="/static/pie.jpg"
+            alt="Pie Aguascalientes"
+        >
+
+    </div>
+
+</div>
+
 </body>
 </html>

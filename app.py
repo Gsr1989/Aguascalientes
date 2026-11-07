@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
@@ -28,6 +28,8 @@ from PIL import Image
 import qrcode
 from io import BytesIO
 import fitz
+import html as html_lib
+import traceback
 from starlette.middleware.sessions import SessionMiddleware
 
 
@@ -2651,6 +2653,64 @@ async def eliminar_folio_web(
 
 # ===================== REGISTRO ADMIN =====================
 
+def _pagina_admin_pdf(
+    ok: bool,
+    titulo: str,
+    detalle: str,
+    pdf_url: str = "",
+    volver_url: str = "/panel/registro_admin"
+) -> str:
+
+    boton_pdf = (
+        f'<a class="btn" href="{html_lib.escape(pdf_url)}">'
+        f'⬇️ Descargar PDF</a>'
+        if pdf_url
+        else ""
+    )
+
+    script_auto = (
+        '<script>setTimeout(function(){'
+        f'window.location.href="{html_lib.escape(pdf_url)}";'
+        '},400);</script>'
+        if pdf_url
+        else ""
+    )
+
+    color = "#2e7d32" if ok else "#b71c1c"
+    icono = "✅" if ok else "❌"
+
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{html_lib.escape(titulo)}</title>
+<style>
+body{{margin:0;padding:24px;min-height:100vh;display:flex;
+align-items:center;justify-content:center;background:#f4f5f7;
+font-family:Arial,sans-serif;color:#444}}
+.c{{width:100%;max-width:520px;background:#fff;padding:34px 28px;
+border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.12);text-align:center}}
+h1{{margin:0 0 6px;font-size:24px;color:{color}}}
+p{{color:#666;line-height:1.5;word-break:break-word}}
+.btn{{display:block;margin:14px 0 0;padding:14px;border-radius:10px;
+background:#1a237e;color:#fff;text-decoration:none;font-weight:bold}}
+.btn.sec{{background:#eceff1;color:#333}}
+</style>
+</head>
+<body>
+<div class="c">
+<h1>{icono} {html_lib.escape(titulo)}</h1>
+<p>{html_lib.escape(detalle)}</p>
+{boton_pdf}
+<a class="btn sec" href="{html_lib.escape(volver_url)}">➕ Crear otro folio</a>
+<a class="btn sec" href="/panel/admin_folios">📄 Ver folios</a>
+</div>
+{script_auto}
+</body>
+</html>"""
+
+
 @app.get(
     "/panel/registro_admin",
     response_class=HTMLResponse
@@ -2709,7 +2769,7 @@ async def registro_admin_post(
             folio.strip()
             if folio
             and folio.strip()
-            else generar_folio_ags()
+            else await _generar_folio_ags_async()
         )
 
         fecha_exp = (
@@ -2776,7 +2836,11 @@ async def registro_admin_post(
             )
         }
 
-        generar_pdf_unificado_ags(
+        # El PDF se genera en un hilo aparte para no bloquear
+        # el servidor, y ahora SÍ guardamos la ruta para
+        # entregarla al admin.
+        pdf_path = await asyncio.to_thread(
+            generar_pdf_unificado_ags,
             datos_pdf
         )
 
@@ -2813,13 +2877,24 @@ async def registro_admin_post(
             )
         }).execute()
 
-        return RedirectResponse(
-            url=(
-                "/panel/admin_folios"
-                f"?success=created"
-                f"&folio={folio_generado}"
-            ),
-            status_code=303
+        nombre_pdf = os.path.basename(
+            pdf_path
+        )
+
+        return HTMLResponse(
+            _pagina_admin_pdf(
+                ok=True,
+                titulo="Folio creado",
+                detalle=(
+                    f"Folio {folio_generado} registrado. "
+                    f"Tu PDF se descargará automáticamente; "
+                    f"si no, toca el botón."
+                ),
+                pdf_url=(
+                    f"/panel/descargar_pdf/"
+                    f"{nombre_pdf}"
+                )
+            )
         )
 
     except Exception as e:
@@ -2828,13 +2903,67 @@ async def registro_admin_post(
             f"Error en registro admin: {e}"
         )
 
-        return RedirectResponse(
-            url=(
-                "/panel/registro_admin"
-                "?error=1"
+        traceback.print_exc()
+
+        return HTMLResponse(
+            _pagina_admin_pdf(
+                ok=False,
+                titulo="No se pudo crear el folio",
+                detalle=f"Error: {e}"
             ),
+            status_code=500
+        )
+
+
+# ===================== DESCARGAR PDF (ADMIN) =====================
+
+@app.get(
+    "/panel/descargar_pdf/{archivo}"
+)
+async def panel_descargar_pdf(
+    request: Request,
+    archivo: str
+):
+
+    if not request.session.get(
+        "admin"
+    ):
+
+        return RedirectResponse(
+            url="/panel/login",
             status_code=303
         )
+
+    # Evita rutas tipo ../../etc/passwd
+    archivo_seguro = os.path.basename(
+        archivo
+    )
+
+    ruta = os.path.join(
+        OUTPUT_DIR,
+        archivo_seguro
+    )
+
+    if (
+        not archivo_seguro
+        .lower()
+        .endswith(".pdf")
+        or not os.path.exists(ruta)
+    ):
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "PDF no encontrado. Si el servidor "
+                "se reinició, los archivos se borran."
+            )
+        )
+
+    return FileResponse(
+        ruta,
+        media_type="application/pdf",
+        filename=archivo_seguro
+    )
 
 
 # ===================== WEBHOOK =====================
